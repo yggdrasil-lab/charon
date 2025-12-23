@@ -8,7 +8,9 @@ services:
     env_file: .env
     volumes:
       - ${OBSIDIAN_VAULT_PATH}:/data
-    command: bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --resync --create-empty-src-dirs
+      - ${RCLONE_CACHE_PATH}:/root/.cache/rclone
+      - ./entrypoint.sh:/entrypoint.sh
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     networks:
       - aether-net
 

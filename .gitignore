@@ -169,5 +169,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 .env
-vault_data
+data
 config
+cache
