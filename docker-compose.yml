@@ -58,7 +58,7 @@ services:
     volumes:
       - ${OBSIDIAN_VAULT_PATH}:/data
       - ./git-backup.sh:/usr/local/bin/git-backup.sh
-      - ${HOST_SSH_PATH}:/root/.ssh:ro
+      - ${HOST_SSH_PATH}:/mnt/ssh_keys:ro
 
 networks:
   aether-net:

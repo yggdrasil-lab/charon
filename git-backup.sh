@@ -14,9 +14,14 @@ fi
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
 
-# Ensure SSH directory exists and permissions are correct
+# Setup SSH keys from mounted volume
+echo "Setting up SSH keys..."
 mkdir -p /root/.ssh
+if [ -d "/mnt/ssh_keys" ]; then
+    cp -R /mnt/ssh_keys/* /root/.ssh/
+fi
 chmod 700 /root/.ssh
+chmod 600 /root/.ssh/*
 
 # Add github.com to known_hosts
 if ! ssh-keygen -F github.com &> /dev/null; then
