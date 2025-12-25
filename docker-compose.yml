@@ -44,19 +44,19 @@ services:
     image: alpine/git:latest
     container_name: git_backup
     restart: unless-stopped
-    working_dir: /data
+    working_dir: /git
     entrypoint: /bin/sh
     command: -c '
-        git config --global --add safe.directory /data;
+        git config --global --add safe.directory /git;
         echo "Starting backup script...";
-        exec /usr/local/bin/git-backup.sh;
+        exec /bin/sh /usr/local/bin/git-backup.sh;
       '
     environment:
       - GIT_REPO_URL=${GIT_REPO_URL}
       - GIT_USER_EMAIL=${GIT_USER_EMAIL}
       - GIT_USER_NAME=${GIT_USER_NAME}
     volumes:
-      - ${OBSIDIAN_VAULT_PATH}:/data
+      - ${OBSIDIAN_VAULT_PATH}:/git
       - ./git-backup.sh:/usr/local/bin/git-backup.sh
       - ${HOST_SSH_PATH}:/mnt/ssh_keys:ro
 
