@@ -12,23 +12,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create .env file
-        env:
-          RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}
-        run: |
-          # Create/Overwrite .env file
-          echo "RCLONE_CONFIG_GDRIVE_TYPE=${{ vars.RCLONE_CONFIG_GDRIVE_TYPE }}" > .env
-          echo "RCLONE_CONFIG_GDRIVE_SCOPE=${{ vars.RCLONE_CONFIG_GDRIVE_SCOPE }}" >> .env
-          # Using shell variables to preserve quotes in secrets
-          echo "RCLONE_CONFIG_GDRIVE_TOKEN=$RCLONE_CONFIG_GDRIVE_TOKEN" >> .env
-          echo "OBSIDIAN_VAULT_PATH=${{ vars.OBSIDIAN_VAULT_PATH }}" >> .env
-          echo "RCLONE_CACHE_PATH=${{ vars.RCLONE_CACHE_PATH }}" >> .env
-          echo "GIT_REPO_URL=${{ vars.GIT_REPO_URL }}" >> .env
-          echo "GIT_USER_EMAIL=${{ secrets.GIT_USER_EMAIL }}" >> .env
-          echo "GIT_USER_NAME=${{ vars.GIT_USER_NAME }}" >> .env
-          echo "GDRIVE_VAULT_PATH=${{ vars.GDRIVE_VAULT_PATH }}" >> .env
-          echo "HOST_SSH_PATH=${{ vars.HOST_SSH_PATH }}" >> .env
-
       - name: Deploy with Docker Compose
+        env:
+          RCLONE_CONFIG_GDRIVE_TYPE: ${{ vars.RCLONE_CONFIG_GDRIVE_TYPE }}
+          RCLONE_CONFIG_GDRIVE_SCOPE: ${{ vars.RCLONE_CONFIG_GDRIVE_SCOPE }}
+          RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}
+          OBSIDIAN_VAULT_PATH: ${{ vars.OBSIDIAN_VAULT_PATH }}
+          RCLONE_CACHE_PATH: ${{ vars.RCLONE_CACHE_PATH }}
+          GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+          GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
+          GDRIVE_VAULT_PATH: ${{ vars.GDRIVE_VAULT_PATH }}
+          HOST_SSH_PATH: ${{ vars.HOST_SSH_PATH }}
         run: |
           docker compose up -d --build --remove-orphans

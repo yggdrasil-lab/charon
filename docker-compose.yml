@@ -10,7 +10,11 @@ services:
     depends_on:
       git-backup:
         condition: service_healthy
-    env_file: .env
+    environment:
+      - RCLONE_CONFIG_GDRIVE_TYPE=${RCLONE_CONFIG_GDRIVE_TYPE}
+      - RCLONE_CONFIG_GDRIVE_SCOPE=${RCLONE_CONFIG_GDRIVE_SCOPE}
+      - RCLONE_CONFIG_GDRIVE_TOKEN=${RCLONE_CONFIG_GDRIVE_TOKEN}
+      - GDRIVE_VAULT_PATH=${GDRIVE_VAULT_PATH}
     volumes:
       - ${OBSIDIAN_VAULT_PATH}/second-brain:/data
       - ${RCLONE_CACHE_PATH}:/root/.cache/rclone
