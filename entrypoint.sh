@@ -26,11 +26,11 @@ while [ "$STOP_REQUESTED" = false ]; do
         rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --create-empty-src-dirs
     fi
 
-    echo "Sync complete. Sleeping for 5 minutes..."
+    echo "Sync complete. Sleeping for 30 seconds..."
     
     # Sleep with interrupt capability
     # This prevents tight looping and allows for graceful exit
-    sleep 300 &
+    sleep 30 &
     SLEEP_PID=$!
     wait "$SLEEP_PID"
     SLEEP_PID=""
