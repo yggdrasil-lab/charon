@@ -49,8 +49,21 @@ git pull origin main || echo "Initial pull failed."
 # Signal readiness for healthcheck
 touch .git_ready
 
+# Graceful Shutdown Handling
+STOP_REQUESTED=false
+shutdown_handler() {
+    echo "[$(date)] SIGTERM/SIGINT received. Shutting down gracefully..."
+    STOP_REQUESTED=true
+    # If we are sleeping (PID of sleep command), kill it to exit immediately
+    if [ -n "$SLEEP_PID" ]; then
+        kill "$SLEEP_PID" 2>/dev/null
+    fi
+}
+
+trap 'shutdown_handler' SIGTERM SIGINT
+
 # Main backup loop
-while true; do
+while [ "$STOP_REQUESTED" = false ]; do
   echo "[$(date)] --- Starting hourly backup check ---"
   
   # Add all changes to staging
@@ -70,11 +83,17 @@ while true; do
     git pull --rebase origin main || echo "Pull --rebase failed, attempting push anyway..."
 
     # Push changes to the remote repository
-    # The -u flag sets the upstream branch for the current branch
     git push -u origin main
     echo "Successfully pushed changes to the remote repository."
   fi
   
   echo "Backup check complete. Sleeping for 1 hour..."
-  sleep 3600
+  
+  # Sleep with background process to allow trap interruption
+  sleep 3600 &
+  SLEEP_PID=$!
+  wait "$SLEEP_PID"
+  SLEEP_PID=""
 done
+
+echo "[$(date)] Backup script stopped."

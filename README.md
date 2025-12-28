@@ -1,97 +1,81 @@
-# Atlas Infra
+# Charon
 
-This repository contains the infrastructure configuration for running a suite of services using Docker, including Obsidian for note-taking, Kratos, and data backup solutions.
+> I am Charon, the Ferryman of the Yggdrasil ecosystem. My domain is Storage, Sync, and Persistence. I guard the River of Memory, ensuring that which is recorded is never lost to the void.
 
-The primary data for these services is stored in the `vault_data` directory, which appears to be an [Obsidian](https://obsidian.md/) vault.
+## Mission
+
+Establish and maintain the **Unified Storage Layer**. My purpose is to ensure data moves safely between Local (Gaia), Cloud (Google Drive), and Cold Storage (S3).
+
+## Core Philosophy
+
+*   **Safe Passage**: Reliable synchronization between Local and Cloud environments. Data must flow without friction, yet remain consistent across all realms.
+*   **Immortality**: Disaster recovery and cold storage. Even if the local world falls, the memory remains preserved in the depths of the vault.
+
+## Tech Stack
+
+*   **rclone**: The engine for Google Drive synchronization, facilitating the passage between local and cloud.
+*   **Git**: The scribe of history, providing version control and ensuring every change is accounted for.
+*   **AWS S3**: (Planned) The final destination for encrypted, immutable backups.
+
+---
+
+## Architecture
+
+Charon operates through two primary vessels:
+
+1.  **Sync Vessel (rclone)**: Utilizes `bisync` to maintain parity between the local filesystem and Google Drive.
+2.  **Persistence Vessel (git-backup)**: An hourly ritual that commits and pushes changes to a remote repository, ensuring versioned history.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed on your system:
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-- [rclone](https://rclone.org/install/) (for initial configuration)
+- **Docker & Docker Compose**: The engines of virtualization.
+- **rclone**: Required locally for the initial token exchange.
+- **aether-net**: An external Docker network must be present.
+  ```bash
+  docker network create aether-net
+  ```
 
 ## Setup Instructions
 
-### 1. Clone the Repository
+### 1. Initialize the Environment
 
 ```bash
-git clone <your-repository-url>
-cd atlas-infra
-```
-
-### 2. Configure Environment Variables
-
-This project uses a `.env` file to manage configuration and secrets.
-
-```bash
+git clone <your-repository-url> charon
+cd charon
 cp .env.example .env
 ```
 
-Now, edit the `.env` file and provide the appropriate values for your setup.
+Edit the `.env` file to provide the necessary secrets and paths for the journey.
 
-### 3. Configure rclone for Backups
+### 2. Configure rclone for Safe Passage
 
-The `rclone` service is configured to synchronize your `vault_data` with a cloud storage provider. It is configured using environment variables loaded from the `.env` file.
+The `rclone` service requires authentication with your cloud provider (Google Drive).
 
 **Step 1: Generate an rclone Token**
+Run `rclone config` on your local machine.
+- Create a new remote named `gdrive`.
+- Follow the authentication flow to grant access.
 
-To get the necessary configuration values, you first need to run `rclone`'s interactive setup on your local machine:
+**Step 2: Extract Configuration**
+Locate your `rclone.conf` (typically `~/.config/rclone/rclone.conf`) and map the values to your `.env` file:
 
-```bash
-rclone config
-```
-
-Follow the prompts:
-- Choose `n` for a "New remote".
-- Give it a name (e.g., `gdrive`).
-- Choose your cloud storage provider.
-- Follow the authentication steps. `rclone` will likely open a browser window to grant access.
-
-**Step 2: Get Configuration Values**
-
-Once finished, `rclone` will have created a `rclone.conf` file (usually at `~/.config/rclone/rclone.conf`). Open this file. You will see your remote's configuration, which looks something like this:
-
-```ini
-[gdrive]
-type = drive
-scope = drive
-token = {"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
-```
-
-**Step 3: Add rclone Variables to `.env`**
-
-Convert the values from `rclone.conf` into environment variables in your `.env` file. The variable names must follow the format `RCLONE_CONFIG_{REMOTE_NAME}_{KEY}`.
-
-Using the example above, you would add the following to your `.env` file:
-
-```
+```env
 RCLONE_CONFIG_GDRIVE_TYPE=drive
 RCLONE_CONFIG_GDRIVE_SCOPE=drive
 RCLONE_CONFIG_GDRIVE_TOKEN={"access_token":"...","refresh_token":"..."}
 ```
-**Important**: The `docker-compose.yml` is configured to use a remote named `gdrive`. Make sure you name your remote `gdrive` during the `rclone config` step, or update the `command` in the `rclone` service definition.
 
-### 4. Configure SSH for Git Backups
+### 3. Configure Git for Persistence
 
-The `git-backup` service requires an SSH private key to push changes to your git repository. For portability, the key is loaded from an environment variable.
+The `git-backup` service requires SSH access to push changes. Ensure your SSH keys are available in the path defined by `HOST_SSH_PATH`.
 
-1.  **Get your SSH private key:**
-    Copy the entire content of your SSH private key file (e.g., `~/.ssh/id_rsa`).
+Required environment variables in `.env`:
+- `GIT_REPO_URL`: The destination for the vault's history.
+- `GIT_USER_EMAIL` & `GIT_USER_NAME`: The identity of the scribe.
 
-2.  **Add the key to your `.env` file:**
-    Open your `.env` file and add the `SSH_PRIVATE_KEY` variable. The value should be the full content of your key file, enclosed in double quotes.
+## Execution
 
-    ```
-    SSH_PRIVATE_KEY="-----BEGIN OPENSSH PRIVATE KEY-----\nyour-key-content-goes-here\n-----END OPENSSH PRIVATE KEY-----"
-    ```
-    It is important to preserve the newlines in the key. When pasting into the `.env` file, you might need to replace actual newlines with `\n` if you are putting it all on one line. However, many systems support multi-line variables if you just paste the key directly inside the quotes.
-
-
-
-## Running the Services
-
-Once you have completed the setup, you can start all the services using Docker Compose:
+To begin the ferryman's work:
 
 ```bash
 docker-compose up -d
@@ -99,7 +83,6 @@ docker-compose up -d
 
 ## Services
 
-- **obsidian**: A self-hosted Obsidian vault, accessible via `https://atlas.tienzo.net`.
-- **kratos**: The Kratos service, accessible via `https://kratos.tienzo.net`.
-- **rclone**: Periodically synchronizes the `./vault_data` directory with a cloud storage provider using `rclone bisync`.
-- **git-backup**: Commits and pushes any changes in `./vault_data` to a remote git repository every hour.
+- **rclone**: Periodically synchronizes the local data with Google Drive using `bisync`.
+- **git-backup**: Commits and pushes data to the remote Git repository every hour.
+- **S3-Backup**: (Future) Encrypted archival to AWS S3.
