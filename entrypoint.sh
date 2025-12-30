@@ -1,13 +1,18 @@
-#!/bin/sh
+# Sync interval in seconds (default 30)
+SYNC_INTERVAL="${SYNC_INTERVAL:-30}"
+
+log() {
+    echo "[$(date)] $1"
+}
 
 # Graceful Shutdown Handling
 STOP_REQUESTED=false
 shutdown_handler() {
-    echo "[$(date)] SIGTERM/SIGINT received. Shutting down gracefully..."
+    log "SIGTERM/SIGINT received. Shutting down gracefully..."
     STOP_REQUESTED=true
     
     # Clear cache on stop to ensure the next start is a clean resync
-    echo "Clearing bisync cache before exit..."
+    log "Clearing bisync cache before exit..."
     rm -rf /root/.cache/rclone/bisync
     
     # If sleeping, kill sleep to exit
@@ -18,32 +23,41 @@ shutdown_handler() {
 
 trap 'shutdown_handler' SIGTERM SIGINT
 
-echo "Initializing rclone entrypoint..."
+log "Initializing rclone entrypoint..."
 
 # Ensure we start fresh on every container boot
-echo "Forcing fresh start: Clearing bisync cache..."
+log "Forcing fresh start: Clearing bisync cache..."
 rm -rf /root/.cache/rclone/bisync
 
 while [ "$STOP_REQUESTED" = false ]; do
-    echo "----------------------------------------------------------------"
+    log "----------------------------------------------------------------"
     
     # Check if we've ever synced before by looking for rclone's internal cache.
     # Since we clear it at boot and on stop, this will be TRUE for the first iteration.
     if [ ! -d "/root/.cache/rclone/bisync" ]; then
-        echo "First run of session: Initializing with --resync..."
-        rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --resync --create-empty-src-dirs
+        log "First run of session: Initializing with --resync..."
+        if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --resync --create-empty-src-dirs; then
+             log "WARNING: Initial resync failed. Cache will remain empty, retrying next loop..."
+        else
+             log "Initial resync successful."
+        fi
     else
-        echo "Subsequent run: Syncing changes..."
-        rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --create-empty-src-dirs
+        log "Subsequent run: Syncing changes..."
+        if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --create-empty-src-dirs; then
+            log "ERROR: Sync failed. Clearing bisync cache to force critical resync on next run."
+            rm -rf /root/.cache/rclone/bisync
+        else
+            log "Sync successful."
+        fi
     fi
 
-    echo "Sync complete. Sleeping for 30 seconds..."
+    log "Sync complete. Sleeping for ${SYNC_INTERVAL} seconds..."
     
     # Sleep with interrupt capability
-    sleep 30 &
+    sleep "$SYNC_INTERVAL" &
     SLEEP_PID=$!
     wait "$SLEEP_PID"
     SLEEP_PID=""
 done
 
-echo "[$(date)] Rclone service stopped."
+log "Rclone service stopped."
