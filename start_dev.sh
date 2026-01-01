@@ -3,12 +3,6 @@ set -e
 
 echo "Starting Charon in Development mode..."
 
-# Define network name
-NETWORK_NAME="aether-net"
-
-# Ensure network exists
-docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || docker network create "$NETWORK_NAME"
-
 # Check if .env file exists
 if [ ! -f .env ]; then
     echo "Error: .env file not found. Please create it by copying .env.example:"
@@ -18,6 +12,7 @@ if [ ! -f .env ]; then
 fi
 
 # Build and start the containers
+docker compose down
 docker compose up --build -d
 
 echo "Development environment started."
