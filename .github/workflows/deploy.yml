@@ -42,6 +42,5 @@ jobs:
 
       - name: Deploy Stack
         run: |
-          source ./scripts/load_env.sh
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh "charon" docker-compose.yml
