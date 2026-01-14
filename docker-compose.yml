@@ -2,11 +2,16 @@ version: '3.8'
 
 services:
   rclone:
+    image: charon-rclone:${STACK_NAME:-latest}
     build:
       context: .
       dockerfile: Dockerfile.rclone
-    container_name: rclone
-    restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
     depends_on:
       git-backup:
         condition: service_healthy
@@ -22,13 +27,20 @@ services:
     command: /entrypoint.sh
     networks:
       - aether-net
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
 
   git-backup:
+    image: charon-git:${STACK_NAME:-latest}
     build:
       context: .
       dockerfile: Dockerfile.git
-    container_name: git_backup
-    restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
     working_dir: /git
     healthcheck:
       test: ["CMD", "test", "-f", ".git_ready"]
@@ -49,6 +61,8 @@ services:
     volumes:
       - ${OBSIDIAN_VAULT_PATH}:/git
       - ${HOST_SSH_PATH}:/mnt/ssh_keys:ro
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
 
 networks:
   aether-net:
