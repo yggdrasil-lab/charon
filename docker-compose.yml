@@ -13,8 +13,7 @@ services:
         constraints:
           - node.role == manager
     depends_on:
-      git-backup:
-        condition: service_healthy
+      - git-backup
     environment:
       - RCLONE_CONFIG_GDRIVE_TYPE=${RCLONE_CONFIG_GDRIVE_TYPE}
       - RCLONE_CONFIG_GDRIVE_SCOPE=${RCLONE_CONFIG_GDRIVE_SCOPE}
