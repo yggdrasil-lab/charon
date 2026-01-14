@@ -14,11 +14,11 @@ fi
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
 
-# Setup SSH keys from mounted volume
+# Setup SSH keys from Docker Secret
 echo "Setting up SSH keys..."
 mkdir -p /root/.ssh
-if [ -d "/mnt/ssh_keys" ]; then
-    cp -R /mnt/ssh_keys/* /root/.ssh/
+if [ -f "/run/secrets/charon_ssh_key" ]; then
+    cp /run/secrets/charon_ssh_key /root/.ssh/id_rsa
 fi
 chmod 700 /root/.ssh
 chmod 600 /root/.ssh/*

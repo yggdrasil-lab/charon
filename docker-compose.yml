@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   rclone:
     image: charon-rclone:${STACK_NAME:-latest}
@@ -15,10 +13,11 @@ services:
     depends_on:
       - git-backup
     environment:
-      - RCLONE_CONFIG_GDRIVE_TYPE=${RCLONE_CONFIG_GDRIVE_TYPE}
-      - RCLONE_CONFIG_GDRIVE_SCOPE=${RCLONE_CONFIG_GDRIVE_SCOPE}
-      - RCLONE_CONFIG_GDRIVE_TOKEN=${RCLONE_CONFIG_GDRIVE_TOKEN}
+      - RCLONE_CONFIG=/run/secrets/charon_rclone_config
       - GDRIVE_VAULT_PATH=${GDRIVE_VAULT_PATH}
+    secrets:
+      - source: charon_rclone_config
+        target: charon_rclone_config
     volumes:
       - ${OBSIDIAN_VAULT_PATH}/second-brain:/data
       - ${RCLONE_CACHE_PATH}:/root/.cache/rclone
@@ -57,12 +56,22 @@ services:
       - GIT_USER_EMAIL=${GIT_USER_EMAIL}
       - GIT_USER_NAME=${GIT_USER_NAME}
       - ENV=${ENV}
+    secrets:
+      - source: charon_ssh_key
+        target: charon_ssh_key
     volumes:
       - ${OBSIDIAN_VAULT_PATH}:/git
-      - ${HOST_SSH_PATH}:/mnt/ssh_keys:ro
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
 networks:
   aether-net:
     external: true
+
+secrets:
+  charon_rclone_config:
+    external: true
+    name: ${CHARON_RCLONE_CONFIG_NAME}
+  charon_ssh_key:
+    external: true
+    name: ${CHARON_SSH_KEY_NAME}

@@ -37,19 +37,38 @@ The system operates using two primary mechanisms:
 
 ## Configuration
 
-### Rclone Configuration
+### Secret Configuration
+This stack uses **Docker Secrets** for sensitive data. You must create these secrets specific to the stack (e.g., using `scripts/ensure_secret.sh`).
 
-Generate a token locally (`rclone config`) and map the values to your `.env`:
-```env
-RCLONE_CONFIG_GDRIVE_TYPE=drive
-RCLONE_CONFIG_GDRIVE_SCOPE=drive
-RCLONE_CONFIG_GDRIVE_TOKEN={"access_token":"...","refresh_token":"..."}
+**1. Rclone Config:**
+Create a `rclone.conf` file with the following structure:
+```ini
+[gdrive]
+type = drive
+scope = drive
+token = {"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
 ```
 
-### Git Configuration
+Load it as a secret:
+```bash
+echo "$(cat rclone.conf)" | ./scripts/ensure_secret.sh charon_rclone_config
+```
 
-Ensure SSH keys are available in the path defined by `HOST_SSH_PATH`.
-Required `.env` variables:
+**2. SSH Key:**
+Load your private SSH key for Git access:
+```bash
+# Example
+echo "$(cat ~/.ssh/id_rsa)" | ./scripts/ensure_secret.sh charon_ssh_key
+```
+
+### Environment Variables
+Set the following in `.env` (pointing to the secret names generated above):
+```env
+CHARON_RCLONE_CONFIG_NAME=charon_rclone_config_<hash>
+CHARON_SSH_KEY_NAME=charon_ssh_key_<hash>
+```
+
+**Git Identity:**
 - `GIT_REPO_URL`: Destination repository.
 - `GIT_USER_EMAIL` & `GIT_USER_NAME`: Git identity.
 - `ENV`: (Optional) Environment identifier to prepend to commit messages (e.g., `prod`, `dev`).

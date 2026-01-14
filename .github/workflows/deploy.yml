@@ -14,33 +14,26 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Create .env file
+      - name: Setup Secrets
         env:
-          RCLONE_CONFIG_GDRIVE_TYPE: ${{ vars.RCLONE_CONFIG_GDRIVE_TYPE }}
-          RCLONE_CONFIG_GDRIVE_SCOPE: ${{ vars.RCLONE_CONFIG_GDRIVE_SCOPE }}
-          RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}
+          SSH_KEY: ${{ secrets.VAULT_BACKUP_SSH_KEY }}
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          chmod +x scripts/ensure_secret.sh
+          echo "CHARON_SSH_KEY_NAME=$(echo "$SSH_KEY" | ./scripts/ensure_secret.sh charon_ssh_key)" >> $GITHUB_ENV
+          echo "CHARON_RCLONE_CONFIG_NAME=$(echo "$RCLONE_CONFIG" | ./scripts/ensure_secret.sh charon_rclone_config)" >> $GITHUB_ENV
+
+      - name: Deploy Stack
+        env:
+          # Infrastructure Vars
           OBSIDIAN_VAULT_PATH: ${{ vars.OBSIDIAN_VAULT_PATH }}
           RCLONE_CACHE_PATH: ${{ vars.RCLONE_CACHE_PATH }}
+          GDRIVE_VAULT_PATH: ${{ vars.GDRIVE_VAULT_PATH }}
+          # Git Config
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
           GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
-          GDRIVE_VAULT_PATH: ${{ vars.GDRIVE_VAULT_PATH }}
-          HOST_SSH_PATH: ${{ vars.HOST_SSH_PATH }}
           ENV: ${{ vars.ENV }}
-        run: |
-          echo "RCLONE_CONFIG_GDRIVE_TYPE=${RCLONE_CONFIG_GDRIVE_TYPE}" >> .env
-          echo "RCLONE_CONFIG_GDRIVE_SCOPE=${RCLONE_CONFIG_GDRIVE_SCOPE}" >> .env
-          echo "RCLONE_CONFIG_GDRIVE_TOKEN=${RCLONE_CONFIG_GDRIVE_TOKEN}" >> .env
-          echo "OBSIDIAN_VAULT_PATH=${OBSIDIAN_VAULT_PATH}" >> .env
-          echo "RCLONE_CACHE_PATH=${RCLONE_CACHE_PATH}" >> .env
-          echo "GIT_REPO_URL=${GIT_REPO_URL}" >> .env
-          echo "GIT_USER_EMAIL=${GIT_USER_EMAIL}" >> .env
-          echo "GIT_USER_NAME=${GIT_USER_NAME}" >> .env
-          echo "GDRIVE_VAULT_PATH=${GDRIVE_VAULT_PATH}" >> .env
-          echo "HOST_SSH_PATH=${HOST_SSH_PATH}" >> .env
-          echo "ENV=${ENV}" >> .env
-
-      - name: Deploy Stack
         run: |
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh "charon" docker-compose.yml
