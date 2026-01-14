@@ -25,7 +25,7 @@ services:
     command: /entrypoint.sh
     networks:
       - aether-net
-      - default
+      - internal
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
@@ -63,14 +63,14 @@ services:
     volumes:
       - ${OBSIDIAN_VAULT_PATH}:/git
     networks:
-      - default
+      - internal
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
 networks:
   aether-net:
     external: true
-  default:
+  internal:
     driver: overlay
     internal: true
 
