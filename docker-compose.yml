@@ -13,8 +13,8 @@ services:
     depends_on:
       - git-backup
     environment:
-      - RCLONE_CONFIG=/run/secrets/charon_rclone_config
       - GDRIVE_VAULT_PATH=${GDRIVE_VAULT_PATH}
+      - RCLONE_CONFIG_SECRET_NAME=charon_rclone_config
     secrets:
       - source: charon_rclone_config
         target: charon_rclone_config
