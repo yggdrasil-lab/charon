@@ -25,6 +25,7 @@ services:
     command: /entrypoint.sh
     networks:
       - aether-net
+      - default
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
@@ -61,12 +62,17 @@ services:
         target: charon_ssh_key
     volumes:
       - ${OBSIDIAN_VAULT_PATH}:/git
+    networks:
+      - default
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
 networks:
   aether-net:
     external: true
+  default:
+    driver: overlay
+    internal: true
 
 secrets:
   charon_rclone_config:
