@@ -54,6 +54,15 @@ Load it as a secret:
 echo "$(cat rclone.conf)" | ./scripts/ensure_secret.sh charon_rclone_config
 ```
 
+### 3. Token Refresh & Immutability (Important)
+Rclone requires write access to its configuration file to update OAuth tokens (e.g., Google Drive access tokens). However, Docker Secrets are read-only.
+**Strategy Used:**
+1.  **Secret Injection:** The initial `rclone.conf` (with your first token) is injected as a read-only Docker Secret at `/run/secrets/charon_rclone_config`.
+2.  **Ephemerality (Tmpfs):** The container mounts `/tmp` as a `tmpfs` (RAM Disk).
+3.  **Runtime Copy:** On startup, `entrypoint.sh` copies the secret to `/tmp/rclone.conf` (Writable RAM).
+4.  **Security:** This ensures your unencrypted config **never touches the physical disk** and is instantly destroyed when the container stops.
+*Note: If the container restarts, it reverts to the token in the Secret. Since Google Drive tokens are long-lived, this is acceptable.*
+
 **2. SSH Key:**
 Load your private SSH key for Git access:
 ```bash

@@ -21,6 +21,8 @@ services:
     volumes:
       - ${OBSIDIAN_VAULT_PATH}/second-brain:/data
       - ${RCLONE_CACHE_PATH}:/root/.cache/rclone
+    tmpfs:
+      - /tmp
     entrypoint: /bin/sh
     command: /entrypoint.sh
     networks:
