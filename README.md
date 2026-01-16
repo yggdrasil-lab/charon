@@ -82,6 +82,9 @@ CHARON_SSH_KEY_NAME=charon_ssh_key_<hash>
 - `GIT_USER_EMAIL` & `GIT_USER_NAME`: Git identity.
 - `ENV`: (Optional) Environment identifier to prepend to commit messages (e.g., `prod`, `dev`).
 
+**Backups:**
+- `GDRIVE_BACKUP_PATH`: Destination path in Google Drive for infrastructure dumps (e.g., `Second Brain/Backups`).
+
 ## Deployment
 
 ### 1. Initialize Submodules
@@ -106,11 +109,7 @@ Deploy as a Docker Swarm stack (managed by `ops-scripts`):
 ./scripts/deploy.sh "charon" docker-compose.yml
 ```
 
-**Development:**
-Run locally with environment loading:
-```bash
-./start_dev.sh
-```
+
 
 ### Manual Execution (Advanced)
 You can invoke the deployment script directly:
@@ -120,8 +119,9 @@ You can invoke the deployment script directly:
 
 ## Services
 
-- **rclone**: Bi-directional sync with Google Drive.
-- **git-backup**: Hourly history commits.
+- **charon-sync**: Bi-directional sync of the Second Brain (Vault) with Google Drive. Runs every 30s on Manager.
+- **charon-archive**: Daily backup of Infrastructure dumps (`/mnt/storage/backups`) to Google Drive. Runs on ALL nodes.
+- **git-backup**: Hourly history commits of the Vault.
 - **S3-Backup**: (Future) Encrypted archival to AWS S3.
 
 ## Troubleshooting

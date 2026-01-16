@@ -1,9 +1,9 @@
 services:
-  rclone:
+  charon-sync:
     image: charon-rclone:${STACK_NAME:-latest}
     build:
-      context: .
-      dockerfile: Dockerfile.rclone
+      context: ./rclone
+      dockerfile: Dockerfile
     deploy:
       restart_policy:
         condition: on-failure
@@ -31,11 +31,46 @@ services:
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
+  charon-archive:
+    image: charon-rclone:${STACK_NAME:-latest}
+    build:
+      context: ./rclone
+      dockerfile: Dockerfile
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+    environment:
+      - GDRIVE_BACKUP_PATH=${GDRIVE_BACKUP_PATH}
+      - RCLONE_CONFIG_SECRET_NAME=charon_rclone_config
+    secrets:
+      - source: charon_rclone_config
+        target: charon_rclone_config
+    volumes:
+      - /mnt/storage/backups:/data
+      - ${RCLONE_CACHE_PATH}:/root/.cache/rclone
+    tmpfs:
+      - /tmp
+    entrypoint: /bin/sh
+    # Cron strategy: Setup config -> Create crontab -> Run cron in foreground
+    # Job 1 (03:00): Push new backups (COPY, not sync, to preserve history if local is pruned)
+    # Job 2 (04:00): Prune old backups (>90 days) to manage storage costs
+    command: -c "
+      /setup.sh;
+      echo '0 3 * * * rclone copy /data \"gdrive:${GDRIVE_BACKUP_PATH}/\$$(hostname)\" --config /tmp/rclone.conf >> /var/log/cron.log 2>&1' > /etc/crontabs/root;
+      echo '0 4 * * * rclone delete \"gdrive:${GDRIVE_BACKUP_PATH}/\$$(hostname)\" --min-age 90d --config /tmp/rclone.conf >> /var/log/cron.log 2>&1' >> /etc/crontabs/root;
+      echo 'Starting crond...';
+      crond -f -d 8"
+    networks:
+      - aether-net
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
+
   git-backup:
     image: charon-git:${STACK_NAME:-latest}
     build:
-      context: .
-      dockerfile: Dockerfile.git
+      context: ./git-backup
+      dockerfile: Dockerfile
     deploy:
       restart_policy:
         condition: on-failure

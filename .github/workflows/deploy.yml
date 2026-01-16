@@ -29,6 +29,7 @@ jobs:
           OBSIDIAN_VAULT_PATH: ${{ vars.OBSIDIAN_VAULT_PATH }}
           RCLONE_CACHE_PATH: ${{ vars.RCLONE_CACHE_PATH }}
           GDRIVE_VAULT_PATH: ${{ vars.GDRIVE_VAULT_PATH }}
+          GDRIVE_BACKUP_PATH: ${{ vars.GDRIVE_BACKUP_PATH }}
           # Git Config
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
