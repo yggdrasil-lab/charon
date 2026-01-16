@@ -20,7 +20,7 @@ services:
         target: charon_rclone_config
     volumes:
       - ${OBSIDIAN_VAULT_PATH}/second-brain:/data
-      - ${RCLONE_CACHE_PATH}:/root/.cache/rclone
+      - ${RCLONE_CACHE_PATH}/sync:/root/.cache/rclone
     tmpfs:
       - /tmp
     entrypoint: /bin/sh
@@ -48,7 +48,7 @@ services:
         target: charon_rclone_config
     volumes:
       - /mnt/storage/backups:/data
-      - ${RCLONE_CACHE_PATH}:/root/.cache/rclone
+      - ${RCLONE_CACHE_PATH}/archive:/root/.cache/rclone
     tmpfs:
       - /tmp
     entrypoint: /bin/sh

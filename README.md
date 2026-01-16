@@ -102,6 +102,12 @@ git submodule update --init --recursive
    cp .env.example .env
    ```
 2. Populate the `.env` file with your credentials (see **Configuration** below).
+3. **Important:** Manually create the cache directories on the host to ensure proper segregation:
+   ```bash
+   # Example based on default paths
+   mkdir -p /opt/charon/cache/rclone/sync
+   mkdir -p /opt/charon/cache/rclone/archive
+   ```
 
 ### 3. Launch
 We provide standardized scripts for both production and development environments.
