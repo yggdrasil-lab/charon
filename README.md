@@ -85,6 +85,9 @@ CHARON_SSH_KEY_NAME=charon_ssh_key_<hash>
 **Backups:**
 - `GDRIVE_BACKUP_PATH`: Destination path in Google Drive for infrastructure dumps (e.g., `Second Brain/Backups`).
 
+**Private Registry (Optional):**
+- `REGISTRY_PREFIX`: If pushing to a private registry (e.g., `registry.<DOMAIN_NAME>/`), set this variable in `.env` or GitHub Variables. Ensure it includes the trailing slash.
+
 ## Deployment
 
 ### 1. Initialize Submodules

@@ -1,6 +1,6 @@
 services:
   charon-sync:
-    image: charon-rclone:${STACK_NAME:-latest}
+    image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME:-latest}
     build:
       context: ./rclone
       dockerfile: Dockerfile
@@ -32,7 +32,7 @@ services:
       - "com.docker.compose.project=${STACK_NAME}"
 
   charon-archive:
-    image: charon-rclone:${STACK_NAME:-latest}
+    image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME:-latest}
     build:
       context: ./rclone
       dockerfile: Dockerfile
@@ -67,7 +67,7 @@ services:
       - "com.docker.compose.project=${STACK_NAME}"
 
   git-backup:
-    image: charon-git:${STACK_NAME:-latest}
+    image: ${REGISTRY_PREFIX}charon-git:${STACK_NAME:-latest}
     build:
       context: ./git-backup
       dockerfile: Dockerfile
