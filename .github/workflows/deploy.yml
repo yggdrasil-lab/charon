@@ -35,6 +35,7 @@ jobs:
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
           GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
           ENV: ${{ vars.ENV }}
+          REGISTRY_PREFIX: ${{ vars.REGISTRY_PREFIX }}
         run: |
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh "charon" docker-compose.yml
