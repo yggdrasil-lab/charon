@@ -14,6 +14,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Log in to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.tienzo.net
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_RAW_PASSWORD }}
+
       - name: Setup Secrets
         env:
           SSH_KEY: ${{ secrets.VAULT_BACKUP_SSH_KEY }}
