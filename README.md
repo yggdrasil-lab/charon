@@ -30,10 +30,7 @@ The system operates using two primary mechanisms:
 
 - **Docker & Docker Compose**
 - **rclone**: Required locally for initial token exchange.
-- **aether-net**: The internal Docker network.
-  ```bash
-  docker network create aether-net
-  ```
+- **aether-net**: The internal Docker network (see `Forge/yggdrasil-os`).
 
 ## Configuration
 
