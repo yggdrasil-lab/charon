@@ -56,8 +56,8 @@ services:
     # Job 2 (04:00): Prune old backups (>90 days) to manage storage costs
     command: -c "
       /setup.sh;
-      echo "0 3 * * * rclone copy /data \"gdrive:${GDRIVE_BACKUP_PATH}/$${NODE_HOSTNAME}\" --config /tmp/rclone.conf >> /var/log/cron.log 2>&1" > /etc/crontabs/root;
-      echo "0 4 * * * rclone delete \"gdrive:${GDRIVE_BACKUP_PATH}/$${NODE_HOSTNAME}\" --min-age 90d --config /tmp/rclone.conf >> /var/log/cron.log 2>&1" >> /etc/crontabs/root;
+      echo '0 3 * * * rclone copy /data \"gdrive:${GDRIVE_BACKUP_PATH}/'$$NODE_HOSTNAME'\" --config /tmp/rclone.conf >> /var/log/cron.log 2>&1' > /etc/crontabs/root;
+      echo '0 4 * * * rclone delete \"gdrive:${GDRIVE_BACKUP_PATH}/'$$NODE_HOSTNAME'\" --min-age 90d --config /tmp/rclone.conf >> /var/log/cron.log 2>&1' >> /etc/crontabs/root;
       echo 'Starting crond...';
       crond -f -d 8"
     networks:
