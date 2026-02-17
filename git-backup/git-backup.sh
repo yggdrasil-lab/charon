@@ -71,8 +71,8 @@ while [ "$STOP_REQUESTED" = false ]; do
   if ! git pull --ff-only origin main; then
     echo "Standard pull failed (not fast-forward). Attempting to resolve by prioritizing local state..."
     
-    # User instruction: "Prioritize remote changes in conflict scenarios"
-    # Strategy: Commit local changes, then rebase our commits on top of origin, favoring 'ours' (remote/upstream) in conflicts.
+    # User instruction: "Prioritize local changes in conflict scenarios"
+    # Strategy: Commit local changes, then rebase our commits on top of origin, favoring 'theirs' (our local) in conflicts.
     
     git add .
     # Allow empty commits in case the diff is trivial but git was confused
@@ -113,9 +113,9 @@ while [ "$STOP_REQUESTED" = false ]; do
   
   # 3. Check if there are any changes to commit (after the pull)
   if git diff --staged --quiet; then
-    echo "No local changes to backup."
+    echo "Working directory is clean (all changes committed). Proceeding to push..."
   else
-    echo "Changes detected. Committing and pushing to remote."
+    echo "Changes detected. Committing..."
     
     # Construct commit message prefix based on ENV
     if [ -n "$ENV" ]; then
@@ -124,18 +124,42 @@ while [ "$STOP_REQUESTED" = false ]; do
         PREFIX=""
     fi
     
-    # Commit changes with a timestamp and optional source identifier
+    # Commit changes
     git commit -m "${PREFIX}Hourly Vault Backup: $(date)"
-    
-    # Push changes to the remote repository
-    # If push fails, we try to pull --rebase once to resolve simple races
-    if ! git push -u origin main; then
-        echo "Push failed. Attempting rebase and retry..."
-        git pull --rebase origin main
-        git push -u origin main || echo "Push failed after rebase."
-    else
-        echo "Successfully pushed changes to the remote repository."
-    fi
+  fi
+  
+  # 4. Push to remote if we are ahead (or if we have unpushed commits from a rebase)
+  # We use 'git push' which will handle the "Everything up-to-date" case gracefully
+  echo "Ensuring remote is in sync..."
+  if ! git push origin main; then
+      echo "Push failed. Remote might have diverged (e.g., force push). Attempting final rebase..."
+      
+      if git pull --rebase origin main; then
+          git push origin main || echo "Final push failed."
+      else
+          echo "Rebase failed. Prioritizing LOCAL state as source of truth."
+          # If we cannot rebase, it means the histories are hopelessly diverged.
+          # Strategy: Soft reset to remote HEAD, keeping all local files as "changes", then commit and push.
+          echo "Performing soft reset to align with remote..."
+          
+          # 1. Fetch latest remote
+          git fetch origin main
+          
+          # 2. Soft reset: Move HEAD to remote, but keep working directory (local files) intact
+          git reset --soft origin/main
+          
+          # 3. Stage all local files (this effectively "overwrites" the remote state with local state in a new commit)
+          git add .
+          
+          # 4. Commit as a fresh backup state
+          git commit -m "Consolidated Backup: Resync after divergence $(date)"
+          
+          # 5. Push (force shouldn't be needed now as we are legally ahead, but we use it just in case)
+          echo "Pushing consolidated state..."
+          git push origin main || git push --force origin main
+      fi
+  else
+      echo "Remote is in sync."
   fi
   
   echo "Backup check complete. Sleeping for 1 hour..."
