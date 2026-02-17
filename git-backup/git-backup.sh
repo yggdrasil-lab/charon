@@ -78,10 +78,18 @@ while [ "$STOP_REQUESTED" = false ]; do
     # Allow empty commits in case the diff is trivial but git was confused
     git commit --allow-empty -m "Pre-rebase save: $(date)"
     
+    # Check for stale rebase state before attempting pull
+    if [ -d ".git/rebase-merge" ]; then
+        echo "Found stale rebase state. Aborting..."
+        git rebase --abort || rm -rf .git/rebase-merge
+    fi
+
     # Rebase using 'theirs' strategy. 
     # In a rebase, 'theirs' refers to the current branch commits being replayed (our local content).
     if ! git pull --rebase -X theirs origin main; then
-       echo "Critical: Rebase failed even with strategy options. Aborting this cycle."
+       echo "Critical: Rebase failed even with strategy options. Attempting to abort and clean up."
+       git rebase --abort || rm -rf .git/rebase-merge
+       echo "Aborted rebase. Backup cycle skipped to avoid data corruption."
        # We don't exit, just loop around and try again later/sleep
     else
        echo "Rebase successful. Local state preserved."
