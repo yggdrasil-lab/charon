@@ -37,6 +37,7 @@ while [ "$STOP_REQUESTED" = false ]; do
         log "First run of session: Initializing with --resync..."
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --resync --create-empty-src-dirs; then
              log "WARNING: Initial resync failed. Cache will remain empty, retrying next loop..."
+             rm -rf /root/.cache/rclone/bisync
         else
              log "Initial resync successful."
         fi
