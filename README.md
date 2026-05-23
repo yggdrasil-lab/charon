@@ -32,6 +32,18 @@ The system operates using two primary mechanisms:
 - **rclone**: Required locally for initial token exchange.
 - **aether-net**: The internal Docker network (see `Forge/yggdrasil-os`).
 
+## Directory Structure
+
+```text
+charon/
+├── .github/workflows/   # CI/CD pipelines
+├── git-backup/          # Git backup container context
+├── rclone/              # Rclone container context
+├── scripts/             # Submodule (ops-scripts)
+├── setup_host.sh        # Host preparation script (One-time run)
+└── docker-compose.yml   # Stack configuration
+```
+
 ## Configuration
 
 ### Secret Configuration
@@ -93,18 +105,12 @@ This repository uses `ops-scripts` for standardized deployment logic.
 git submodule update --init --recursive
 ```
 
-### 2. Configure Environment
-1. Copy the example configuration:
-   ```bash
-   cp .env.example .env
-   ```
-2. Populate the `.env` file with your credentials (see **Configuration** below).
-3. **Important:** Manually create the cache directories on the host to ensure proper segregation:
-   ```bash
-   # Example based on default paths
-   mkdir -p /opt/charon/cache/rclone/sync
-   mkdir -p /opt/charon/cache/rclone/archive
-   ```
+### 2. Host Preparation
+Before deploying, run the host preparation script to ensure that the required vault and rclone cache directories exist on the host with the correct permissions:
+```bash
+chmod +x setup_host.sh
+./setup_host.sh
+```
 
 ### 3. Launch
 We provide standardized scripts for both production and development environments.
