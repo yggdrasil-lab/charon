@@ -44,12 +44,24 @@ if [ ! -d ".git" ]; then
   echo "No .git directory found. Connecting to existing repository..."
   git init
   git remote add origin "${GIT_REPO_URL}"
-  git fetch
-  git checkout -f main || git checkout -b main
 fi
 
 # Always ensure the remote URL is up-to-date
 git remote set-url origin "${GIT_REPO_URL}"
+
+echo "Fetching latest changes from remote..."
+git fetch origin
+
+# Ensure local branch is main
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "Current branch is '$CURRENT_BRANCH'. Switching to 'main'..."
+  if ! git show-ref --verify --quiet refs/heads/main; then
+    git checkout -b main origin/main 2>/dev/null || git checkout -b main
+  else
+    git checkout main
+  fi
+fi
 
 echo "Pulling latest changes..."
 git pull origin main || echo "Initial pull failed."
