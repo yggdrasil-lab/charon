@@ -18,8 +18,15 @@ git config --global user.name "${GIT_USER_NAME}"
 echo "Setting up SSH keys..."
 mkdir -p /root/.ssh
 if [ -f "/run/secrets/charon_ssh_key" ]; then
-    # Strip Windows-style carriage returns (\r) to prevent SSH "error in libcrypto"
+    # Strip Windows-style carriage returns (\r)
     tr -d '\r' < /run/secrets/charon_ssh_key > /root/.ssh/id_rsa
+    # Ensure there is a trailing newline
+    echo "" >> /root/.ssh/id_rsa
+    
+    echo "Debug Key Info:"
+    echo "Line count: $(wc -l < /root/.ssh/id_rsa)"
+    echo "First line: $(head -n 1 /root/.ssh/id_rsa)"
+    echo "Last line: $(tail -n 2 /root/.ssh/id_rsa | head -n 1)" # Print the line before the forced newline
 fi
 chmod 700 /root/.ssh
 chmod 600 /root/.ssh/*
