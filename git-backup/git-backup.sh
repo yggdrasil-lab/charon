@@ -18,7 +18,8 @@ git config --global user.name "${GIT_USER_NAME}"
 echo "Setting up SSH keys..."
 mkdir -p /root/.ssh
 if [ -f "/run/secrets/charon_ssh_key" ]; then
-    cp /run/secrets/charon_ssh_key /root/.ssh/id_rsa
+    # Strip Windows-style carriage returns (\r) to prevent SSH "error in libcrypto"
+    tr -d '\r' < /run/secrets/charon_ssh_key > /root/.ssh/id_rsa
 fi
 chmod 700 /root/.ssh
 chmod 600 /root/.ssh/*
