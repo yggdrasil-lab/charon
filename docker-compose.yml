@@ -90,7 +90,7 @@ services:
       '
     environment:
       - GIT_REPO_URL=${GIT_REPO_URL}
-      - GIT_USER_EMAIL=${GIT_USER_EMAIL}
+      - GIT_USER_EMAIL=${GIT_USER_EMAIL:-charon@tienzo.net}
       - GIT_USER_NAME=${GIT_USER_NAME:-Charon}
       - ENV=${ENV}
     secrets:
