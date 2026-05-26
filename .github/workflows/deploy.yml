@@ -39,8 +39,8 @@ jobs:
           GDRIVE_BACKUP_PATH: ${{ vars.GDRIVE_BACKUP_PATH }}
           # Git Config
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
-          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
-          GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL || 'charon@tienzo.net' }}
+          GIT_USER_NAME: ${{ vars.GIT_USER_NAME || 'Charon' }}
           ENV: ${{ vars.ENV }}
           REGISTRY_PREFIX: ${{ vars.REGISTRY_PREFIX }}
         run: |
