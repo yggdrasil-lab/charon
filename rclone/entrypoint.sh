@@ -38,9 +38,9 @@ while [ "$STOP_REQUESTED" = false ]; do
     
     # Check if we've ever synced before by looking for rclone's internal cache.
     # Since we clear it at boot and on stop, this will be TRUE for the first iteration.
-    if [ ! -d "/var/cache/rclone/.cache/rclone/bisync" ]; then
-        log "First run of session: Initializing with --resync..."
-        if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --resync --create-empty-src-dirs; then
+    if [ ! -d "/var/cache/rclone/bisync" ]; then
+        log "First run of session: Initializing with --resync (local as source of truth)..."
+        if ! rclone bisync /data "gdrive:${GDRIVE_VAULT_PATH}" --verbose --checksum --resync --create-empty-src-dirs; then
              log "WARNING: Initial resync failed. Cache will remain empty, retrying next loop..."
              find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
         else
