@@ -18,4 +18,4 @@ fi
 
 # Ensure we start fresh on every container boot if using bisync
 log "Clearing bisync cache..."
-rm -rf /root/.cache/rclone/bisync
+rm -rf /var/cache/rclone/bisync

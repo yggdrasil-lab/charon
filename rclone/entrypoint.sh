@@ -13,7 +13,7 @@ shutdown_handler() {
     
     # Clear cache on stop to ensure the next start is a clean resync
     log "Clearing bisync cache before exit..."
-    rm -rf /root/.cache/rclone/bisync
+    rm -rf /var/cache/rclone/bisync
     
     # If sleeping, kill sleep to exit
     if [ -n "$SLEEP_PID" ]; then
@@ -33,11 +33,11 @@ while [ "$STOP_REQUESTED" = false ]; do
     
     # Check if we've ever synced before by looking for rclone's internal cache.
     # Since we clear it at boot and on stop, this will be TRUE for the first iteration.
-    if [ ! -d "/root/.cache/rclone/bisync" ]; then
+    if [ ! -d "/var/cache/rclone/bisync" ]; then
         log "First run of session: Initializing with --resync..."
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --resync --create-empty-src-dirs; then
              log "WARNING: Initial resync failed. Cache will remain empty, retrying next loop..."
-             rm -rf /root/.cache/rclone/bisync
+             rm -rf /var/cache/rclone/bisync
         else
              log "Initial resync successful."
         fi
@@ -45,7 +45,7 @@ while [ "$STOP_REQUESTED" = false ]; do
         log "Subsequent run: Syncing changes..."
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --create-empty-src-dirs; then
             log "ERROR: Sync failed. Clearing bisync cache to force critical resync on next run."
-            rm -rf /root/.cache/rclone/bisync
+            rm -rf /var/cache/rclone/bisync
         else
             log "Sync successful."
         fi
