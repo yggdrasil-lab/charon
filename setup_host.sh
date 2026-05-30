@@ -1,29 +1,46 @@
 #!/bin/bash
 set -e
 
-# Setup Host Directories
-echo "Ensuring host directories exist..."
+echo "=== Charon host setup ==="
 
-# Obsidian Vault Host Directory
-if [ ! -d "/opt/atlas/vault" ]; then
-    echo "Creating /opt/atlas/vault..."
-    sudo mkdir -p /opt/atlas/vault
-    # Ensure readable/writable by standard Docker UID/GID
-    sudo chown -R 1000:1000 /opt/atlas/vault
+# ---------------------------------------------------------------------------
+# Obsidian Vault — create if missing, then enforce ownership every run.
+# Charon-sync runs as UID 1000 and must write to the vault when bisync pulls
+# changes from Google Drive.
+# ---------------------------------------------------------------------------
+VAULT_ROOT="${OBSIDIAN_VAULT_PATH:-/opt/atlas/vault}"
+VAULT_PATH="${VAULT_ROOT}/second-brain"
+
+echo "Vault: ${VAULT_PATH}"
+
+if [ ! -d "${VAULT_PATH}" ]; then
+    echo "  → Creating ${VAULT_PATH}..."
+    sudo mkdir -p "${VAULT_PATH}"
 fi
 
-# Rclone Cache Sync
-if [ ! -d "/opt/charon/rclone/sync" ]; then
-    echo "Creating /opt/charon/rclone/sync..."
-    sudo mkdir -p /opt/charon/rclone/sync
-    sudo chown -R 1000:1000 /opt/charon/rclone/sync
-fi
+echo "  → Enforcing ownership (1000:1000)..."
+sudo chown -R 1000:1000 "${VAULT_PATH}"
+echo "  ✓ Done"
 
-# Rclone Cache Archive
-if [ ! -d "/opt/charon/rclone/archive" ]; then
-    echo "Creating /opt/charon/rclone/archive..."
-    sudo mkdir -p /opt/charon/rclone/archive
-    sudo chown -R 1000:1000 /opt/charon/rclone/archive
-fi
+# ---------------------------------------------------------------------------
+# Rclone Cache — create subdirectories if missing, then enforce ownership
+# every run. When rclone bisync pulls from Google Drive it writes state
+# files here, so UID 1000 must be able to write.
+# ---------------------------------------------------------------------------
+CACHE_ROOT="${RCLONE_CACHE_PATH:-/opt/charon/rclone}"
 
-echo "Host setup complete."
+for subdir in sync archive; do
+    CACHE_PATH="${CACHE_ROOT}/${subdir}"
+    echo "Cache: ${CACHE_PATH}"
+
+    if [ ! -d "${CACHE_PATH}" ]; then
+        echo "  → Creating ${CACHE_PATH}..."
+        sudo mkdir -p "${CACHE_PATH}"
+    fi
+
+    echo "  → Enforcing ownership (1000:1000)..."
+    sudo chown -R 1000:1000 "${CACHE_PATH}"
+    echo "  ✓ Done"
+done
+
+echo "=== Host setup complete ==="

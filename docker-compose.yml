@@ -4,6 +4,7 @@ services:
     build:
       context: ./rclone
       dockerfile: Dockerfile
+    user: "1000:1000"
     deploy:
       restart_policy:
         condition: on-failure
@@ -15,12 +16,13 @@ services:
     environment:
       - GDRIVE_VAULT_PATH=${GDRIVE_VAULT_PATH}
       - RCLONE_CONFIG_SECRET_NAME=charon_rclone_config
+      - RCLONE_CACHE_DIR=/var/cache/rclone
     secrets:
       - source: charon_rclone_config
         target: charon_rclone_config
     volumes:
       - ${OBSIDIAN_VAULT_PATH}/second-brain:/data
-      - ${RCLONE_CACHE_PATH}/sync:/root/.cache/rclone
+      - ${RCLONE_CACHE_PATH}/sync:/var/cache/rclone
 
     entrypoint: /bin/sh
     command: /entrypoint.sh
