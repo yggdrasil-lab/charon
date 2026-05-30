@@ -43,3 +43,18 @@ else
     echo "Warning: Vault not found at ${VAULT_PATH}. Skipping ownership update."
     echo "Set OBSIDIAN_VAULT_PATH and re-run this script after the vault is restored."
 fi
+
+# =============================================================================
+# Rclone Cache Ownership
+# When rclone bisync pulls from Google Drive, it writes bisync state files
+# to the cache dir. UID 1000 must be able to write there — enforced every run.
+# =============================================================================
+CACHE_PATH="${RCLONE_CACHE_PATH:-/opt/charon/rclone}/sync"
+if [ -d "${CACHE_PATH}" ]; then
+    echo "Enforcing cache ownership at ${CACHE_PATH}..."
+    sudo chown -R 1000:1000 "${CACHE_PATH}"
+    echo "Cache ownership updated."
+else
+    echo "Warning: Cache directory not found at ${CACHE_PATH}. Skipping ownership update."
+    echo "Rclone bisync may fail if the cache dir doesn't exist when charon-sync runs."
+fi
