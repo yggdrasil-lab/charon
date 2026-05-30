@@ -17,6 +17,7 @@ services:
       - GDRIVE_VAULT_PATH=${GDRIVE_VAULT_PATH}
       - RCLONE_CONFIG_SECRET_NAME=charon_rclone_config
       - RCLONE_CACHE_DIR=/var/cache/rclone
+      - HOME=/var/cache/rclone
     secrets:
       - source: charon_rclone_config
         target: charon_rclone_config
