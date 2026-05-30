@@ -1,3 +1,4 @@
+#!/bin/sh
 # Sync interval in seconds (default 30)
 SYNC_INTERVAL="${SYNC_INTERVAL:-30}"
 
