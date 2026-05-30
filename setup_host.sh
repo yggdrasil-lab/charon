@@ -27,3 +27,19 @@ if [ ! -d "/opt/charon/rclone/archive" ]; then
 fi
 
 echo "Host setup complete."
+
+# =============================================================================
+# Obsidian Vault Ownership (for Charon bisync)
+# Charon-sync runs as UID 1000 and must write to the vault when pulling
+# changes from Google Drive. This enforces correct ownership on every run
+# to catch any files that land as root from other processes or restores.
+# =============================================================================
+VAULT_PATH="${OBSIDIAN_VAULT_PATH:-/opt/atlas/vault}/second-brain"
+if [ -d "${VAULT_PATH}" ]; then
+    echo "Enforcing vault ownership at ${VAULT_PATH}..."
+    sudo chown -R 1000:1000 "${VAULT_PATH}"
+    echo "Vault ownership updated."
+else
+    echo "Warning: Vault not found at ${VAULT_PATH}. Skipping ownership update."
+    echo "Set OBSIDIAN_VAULT_PATH and re-run this script after the vault is restored."
+fi
