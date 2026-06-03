@@ -9,7 +9,7 @@ graph TD
     gitbackup[git-backup] -->|hourly commit| github[GitHub]
     gitbackup --> vault
     carchive[charon-archive] -->|nightly copy| gdrive
-    carchive --> backups[/mnt/storage/backups]
+    carchive --> backups["/mnt/storage/backups"]
 ```
 
 ## Services
