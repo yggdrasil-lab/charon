@@ -17,5 +17,11 @@ else
 fi
 
 # Ensure we start fresh on every container boot if using bisync
+
+# Fix directory permissions — directories need execute (+x) to be accessible.
+# Obsidian sync can create directories with mode 646 (rw-r--rw-) which blocks
+# rclone bisync from reading files inside them (lstat: permission denied).
+log "Fixing directory permissions..."
+find /data -type d ! -perm -100 -exec chmod +x {} \; 2>/dev/null || true
 log "Clearing bisync cache..."
 rm -rf /var/cache/rclone/bisync

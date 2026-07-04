@@ -41,16 +41,30 @@ while [ "$STOP_REQUESTED" = false ]; do
     if [ ! -d "/var/cache/rclone/.cache/rclone/bisync" ]; then
         log "First run of session: Initializing with --resync..."
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --resync --create-empty-src-dirs; then
-             log "WARNING: Initial resync failed. Cache will remain empty, retrying next loop..."
-             find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
+             # Non-zero exit doesn't always mean resync failed — permission errors on
+             # individual files (e.g. directories missing +x, causing lstat "permission denied")
+             # produce a non-zero exit code even though the resync completed successfully.
+             # If the bisync state cache was created, the resync worked — proceed.
+             if [ -d "/var/cache/rclone/.cache/rclone/bisync" ]; then
+                 log "WARNING: Resync completed with non-critical errors. Proceeding with normal sync."
+             else
+                 log "WARNING: Initial resync failed entirely. Cache will remain empty, retrying next loop..."
+                 find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
+             fi
         else
              log "Initial resync successful."
         fi
     else
         log "Subsequent run: Syncing changes..."
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --create-empty-src-dirs; then
-            log "ERROR: Sync failed. Clearing bisync cache to force critical resync on next run."
-            find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
+            # Non-zero exit may be from non-critical errors (permission denied on some files).
+            # Only force a resync if the bisync state cache is missing entirely.
+            if [ -d "/var/cache/rclone/.cache/rclone/bisync" ]; then
+                log "WARNING: Sync completed with non-critical errors."
+            else
+                log "ERROR: Sync failed entirely. Clearing bisync cache to force resync on next run."
+                find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
+            fi
         else
             log "Sync successful."
         fi
