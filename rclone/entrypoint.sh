@@ -35,7 +35,7 @@ log "Initializing rclone entrypoint..."
 # a container bounce can do a fast normal sync without --resync overhead.
 BISYNC_CACHE="/var/cache/rclone/.cache/rclone/bisync"
 if [ -d "$BISYNC_CACHE" ]; then
-    if [ ! -f "$BISYNC_CACHE/path1.lst" ] || [ ! -f "$BISYNC_CACHE/path2.lst" ]; then
+    if [ -z "$(find "$BISYNC_CACHE" -maxdepth 1 -name '*.lst' -print -quit 2>/dev/null)" ]; then
         log "Bisync cache incomplete (missing .lst files) — clearing to force --resync"
         find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
     else
