@@ -5,6 +5,7 @@ services:
       context: ./rclone
       dockerfile: Dockerfile
     user: "1000:1000"
+    stop_grace_period: 120s
     deploy:
       restart_policy:
         condition: on-failure

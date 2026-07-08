@@ -8,8 +8,13 @@ log() {
 
 # Graceful Shutdown Handling
 STOP_REQUESTED=false
+SYNC_IN_PROGRESS=false
 shutdown_handler() {
-    log "SIGTERM/SIGINT received. Shutting down gracefully..."
+    if [ "$SYNC_IN_PROGRESS" = true ]; then
+        log "SIGTERM/SIGINT received. Sync in progress, will complete before shutdown..."
+    else
+        log "SIGTERM/SIGINT received. Shutting down gracefully..."
+    fi
     STOP_REQUESTED=true
     
     # If sleeping, kill sleep to exit
@@ -45,6 +50,7 @@ while [ "$STOP_REQUESTED" = false ]; do
     
     if [ ! -d "$BISYNC_CACHE" ]; then
         log "First run of session: Initializing with --resync..."
+        SYNC_IN_PROGRESS=true
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --resync --create-empty-src-dirs; then
              # Non-zero exit doesn't always mean resync failed — permission errors on
              # individual files (e.g. directories missing +x, causing lstat "permission denied")
@@ -59,8 +65,10 @@ while [ "$STOP_REQUESTED" = false ]; do
         else
              log "Initial resync successful."
         fi
+        SYNC_IN_PROGRESS=false
     else
         log "Subsequent run: Syncing changes..."
+        SYNC_IN_PROGRESS=true
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --create-empty-src-dirs; then
             # Non-zero exit may be from non-critical errors (permission denied on some files).
             # Only force a resync if the bisync state cache is missing entirely.
@@ -73,8 +81,10 @@ while [ "$STOP_REQUESTED" = false ]; do
         else
             log "Sync successful."
         fi
+        SYNC_IN_PROGRESS=false
     fi
 
+    SYNC_IN_PROGRESS=false
     log "Sync complete. Sleeping for ${SYNC_INTERVAL} seconds..."
     
     # Sleep with interrupt capability
