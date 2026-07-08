@@ -23,5 +23,5 @@ fi
 # rclone bisync from reading files inside them (lstat: permission denied).
 log "Fixing directory permissions..."
 find /data -type d ! -perm -100 -exec chmod +x {} \; 2>/dev/null || true
-log "Clearing bisync cache..."
-rm -rf /var/cache/rclone/bisync
+# Cache cleanup handled by entrypoint.sh (targets correct path: /var/cache/rclone/.cache/rclone/bisync)
+# setup.sh must not clear cache — would force --resync on every restart
