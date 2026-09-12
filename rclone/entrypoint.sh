@@ -56,10 +56,10 @@ while [ "$STOP_REQUESTED" = false ]; do
              # individual files (e.g. directories missing +x, causing lstat "permission denied")
              # produce a non-zero exit code even though the resync completed successfully.
              # If the bisync state cache was created, the resync worked — proceed.
-             if [ -d "$BISYNC_CACHE" ]; then
+             if [ -d "$BISYNC_CACHE" ] && [ -n "$(find "$BISYNC_CACHE" -maxdepth 1 -name '*.lst' -print -quit 2>/dev/null)" ]; then
                  log "WARNING: Resync completed with non-critical errors. Proceeding with normal sync."
              else
-                 log "WARNING: Initial resync failed entirely. Cache will remain empty, retrying next loop..."
+                 log "WARNING: Initial resync failed entirely (missing state files). Cache will remain empty, retrying next loop..."
                  find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
              fi
         else
@@ -71,11 +71,11 @@ while [ "$STOP_REQUESTED" = false ]; do
         SYNC_IN_PROGRESS=true
         if ! rclone bisync "gdrive:${GDRIVE_VAULT_PATH}" /data --verbose --checksum --create-empty-src-dirs; then
             # Non-zero exit may be from non-critical errors (permission denied on some files).
-            # Only force a resync if the bisync state cache is missing entirely.
-            if [ -d "$BISYNC_CACHE" ]; then
-                log "WARNING: Sync completed with non-critical errors."
+            # Only force a resync if the bisync state cache or .lst files are missing entirely.
+            if [ -d "$BISYNC_CACHE" ] && [ -n "$(find "$BISYNC_CACHE" -maxdepth 1 -name '*.lst' -print -quit 2>/dev/null)" ]; then
+                log "WARNING: Sync completed with non-critical errors (state files intact)."
             else
-                log "ERROR: Sync failed entirely. Clearing bisync cache to force resync on next run."
+                log "ERROR: Sync failed entirely (missing state files). Clearing bisync cache to force resync on next run."
                 find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
             fi
         else
