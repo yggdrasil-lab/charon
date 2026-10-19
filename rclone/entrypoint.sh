@@ -61,7 +61,7 @@ while [ "$STOP_REQUESTED" = false ]; do
              else
                  log "WARNING: Initial resync failed entirely (missing state files). Cache will remain empty, retrying next loop..."
                  find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
-                 /notify-discord.sh "charon-sync" "error" "Initial Resync Failed" "Initial bisync resync failed entirely (missing state files). Retrying next loop."
+                 notify-discord.sh "charon-sync" "error" "Initial Resync Failed" "Initial bisync resync failed entirely (missing state files). Retrying next loop."
              fi
         else
              log "Initial resync successful."
@@ -78,7 +78,7 @@ while [ "$STOP_REQUESTED" = false ]; do
             else
                 log "ERROR: Sync failed entirely (missing state files). Clearing bisync cache to force resync on next run."
                 find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
-                /notify-discord.sh "charon-sync" "error" "Bisync Aborted (Cache Cleared)" "Sync failed with fatal state loss. Cache cleared; next cycle will trigger full resync."
+                notify-discord.sh "charon-sync" "error" "Bisync Aborted (Cache Cleared)" "Sync failed with fatal state loss. Cache cleared; next cycle will trigger full resync."
             fi
         else
             log "Sync successful."

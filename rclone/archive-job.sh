@@ -17,7 +17,7 @@ case "$1" in
         else
             EXIT_CODE=$?
             log "ERROR: Nightly rclone copy failed with exit code ${EXIT_CODE}."
-            /notify-discord.sh "charon-archive" "error" "Nightly Backup Failed" "rclone copy /data to gdrive:${GDRIVE_BACKUP_PATH}/${NODE} failed with exit code ${EXIT_CODE}."
+            notify-discord.sh "charon-archive" "error" "Nightly Backup Failed" "rclone copy /data to gdrive:${GDRIVE_BACKUP_PATH}/${NODE} failed with exit code ${EXIT_CODE}."
             exit $EXIT_CODE
         fi
         ;;
@@ -29,7 +29,7 @@ case "$1" in
         else
             EXIT_CODE=$?
             log "ERROR: Nightly rclone prune failed with exit code ${EXIT_CODE}."
-            /notify-discord.sh "charon-archive" "warning" "Backup Retention Prune Failed" "rclone delete (>90d) failed for node ${NODE} with exit code ${EXIT_CODE}."
+            notify-discord.sh "charon-archive" "warning" "Backup Retention Prune Failed" "rclone delete (>90d) failed for node ${NODE} with exit code ${EXIT_CODE}."
             exit $EXIT_CODE
         fi
         ;;
