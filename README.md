@@ -38,8 +38,9 @@ Charon integrates with Discord for instant error alerting:
 
 ## Quick Deploy
 
+Host directories and permissions are managed centrally by [`yggdrasil-os`](https://github.com/yggdrasil-lab/yggdrasil-os).
+
 ```bash
-chmod +x setup_host.sh && ./setup_host.sh
 curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/deploy/deploy.sh -o /tmp/deploy.sh && chmod +x /tmp/deploy.sh
 /tmp/deploy.sh "charon" docker-compose.yml
 ```
