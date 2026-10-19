@@ -34,6 +34,7 @@ services:
       - RCLONE_CACHE_DIR=/var/cache/rclone
       - HOME=/var/cache/rclone
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - DISCORD_USER_ID=${DISCORD_USER_ID}
     secrets:
       - source: charon_rclone_config
         target: charon_rclone_config
@@ -76,6 +77,7 @@ services:
       - RCLONE_CONFIG_SECRET_NAME=charon_rclone_config
       - NODE_HOSTNAME={{.Node.Hostname}}
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - DISCORD_USER_ID=${DISCORD_USER_ID}
     secrets:
       - source: charon_rclone_config
         target: charon_rclone_config
@@ -128,6 +130,7 @@ services:
       - GIT_USER_NAME=${GIT_USER_NAME}
       - ENV=${ENV}
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - DISCORD_USER_ID=${DISCORD_USER_ID}
     secrets:
       - source: charon_ssh_key
         target: charon_ssh_key
