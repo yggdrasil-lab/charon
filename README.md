@@ -28,7 +28,7 @@ graph TD
 ## Failure Notifications & Monitoring
 
 Charon integrates with Discord for instant error alerting:
-- **Discord Webhook**: Configured via `DISCORD_WEBHOOK_URL` (GitHub secret or environment).
+- **Discord Webhook**: Configured via `DISCORD_ALERTS_WEBHOOK_URL` (GitHub secret or environment).
 - **Thread & User Auto-Add**:
   - In **Forum Channels**, alerts automatically spawn a new thread (`🚨 Charon Alert: <Title>`).
   - Set `DISCORD_USER_ID` (GitHub secret or var) to automatically mention and add your user to the thread.

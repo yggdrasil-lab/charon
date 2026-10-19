@@ -2,7 +2,7 @@
 # Usage: notify-discord.sh "<SERVICE>" "<SEVERITY>" "<TITLE>" "<DETAILS>"
 # SEVERITY: error (0xE74C3C), warning (0xF1C40F), info (0x2ECC71)
 
-WEBHOOK_URL="${DISCORD_WEBHOOK_URL}"
+WEBHOOK_URL="${DISCORD_ALERTS_WEBHOOK_URL:-$DISCORD_WEBHOOK_URL}"
 if [ -z "$WEBHOOK_URL" ] && [ -f "/run/secrets/charon_discord_webhook" ]; then
     WEBHOOK_URL=$(cat /run/secrets/charon_discord_webhook 2>/dev/null || true)
 fi
