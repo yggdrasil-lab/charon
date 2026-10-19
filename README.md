@@ -25,6 +25,17 @@ graph TD
 - `aether-net` — external overlay for Google Drive API access
 - `internal` — stack-internal overlay
 
+## Failure Notifications & Monitoring
+
+Charon integrates with Discord for instant error alerting:
+- **Discord Webhook**: Configured via `DISCORD_WEBHOOK_URL` (GitHub secret or environment).
+- **Triggers**:
+  - `charon-sync`: Critical bisync errors, cache corruption / forced resync.
+  - `charon-archive`: Failures in nightly `rclone copy` (3am) or retention prune `rclone delete` (4am).
+  - `git-backup`: Unresolved git rebase divergence or remote push failures.
+- **Healthchecks**: Real-time heartbeat validation across all three services to detect stuck sync loops or frozen network operations.
+- **Resource Limits**: CPU (0.50) and memory limits (512M) enforced across all containers.
+
 ## Quick Deploy
 
 ```bash

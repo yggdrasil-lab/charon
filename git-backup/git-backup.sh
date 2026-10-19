@@ -122,6 +122,7 @@ while [ "$STOP_REQUESTED" = false ]; do
            echo "Critical: Aggressive resolution failed. Aborting."
            git rebase --abort || rm -rf .git/rebase-merge
            echo "Aborted rebase. Backup cycle skipped."
+           /usr/local/bin/notify-discord.sh "git-backup" "error" "Rebase Conflict Resolution Failed" "Hourly backup cycle skipped because git rebase conflict could not be automatically resolved."
        fi
     else
        echo "Rebase successful. Local state preserved."
@@ -155,7 +156,10 @@ while [ "$STOP_REQUESTED" = false ]; do
       echo "Push failed. Remote might have diverged (e.g., force push). Attempting final rebase..."
       
       if git pull --rebase origin main; then
-          git push origin main || echo "Final push failed."
+          if ! git push origin main; then
+              echo "Final push failed."
+              /usr/local/bin/notify-discord.sh "git-backup" "error" "Git Push Failed" "Failed to push hourly vault commits to remote after rebase."
+          fi
       else
           echo "Rebase failed. Prioritizing LOCAL state as source of truth."
           # If we cannot rebase, it means the histories are hopelessly diverged.
@@ -176,12 +180,16 @@ while [ "$STOP_REQUESTED" = false ]; do
           
           # 5. Push (force shouldn't be needed now as we are legally ahead, but we use it just in case)
           echo "Pushing consolidated state..."
-          git push origin main || git push --force origin main
+          if ! (git push origin main || git push --force origin main); then
+              echo "Pushing consolidated state failed."
+              /usr/local/bin/notify-discord.sh "git-backup" "error" "Consolidated Git Push Failed" "Failed to push consolidated backup state even with force push."
+          fi
       fi
   else
       echo "Remote is in sync."
   fi
   
+  touch /tmp/charon_git_heartbeat
   echo "Backup check complete. Sleeping for 1 hour..."
   
   # Sleep with background process to allow trap interruption

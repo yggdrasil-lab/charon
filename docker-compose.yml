@@ -8,17 +8,32 @@ services:
     stop_grace_period: 120s
     deploy:
       restart_policy:
-        condition: on-failure
+        condition: any
+        delay: 10s
+        window: 60s
       placement:
         constraints:
           - node.role == manager
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          memory: 64M
     depends_on:
       - git-backup
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/charon_sync_heartbeat && [ $$(($$(date +%s) - $$(stat -c %Y /tmp/charon_sync_heartbeat))) -lt 900 ] || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     environment:
       - GDRIVE_VAULT_PATH=${GDRIVE_VAULT_PATH}
       - RCLONE_CONFIG_SECRET_NAME=charon_rclone_config
       - RCLONE_CACHE_DIR=/var/cache/rclone
       - HOME=/var/cache/rclone
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     secrets:
       - source: charon_rclone_config
         target: charon_rclone_config
@@ -41,11 +56,26 @@ services:
     deploy:
       mode: global
       restart_policy:
-        condition: on-failure
+        condition: any
+        delay: 10s
+        window: 60s
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "pgrep", "crond"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     environment:
       - GDRIVE_BACKUP_PATH=${GDRIVE_BACKUP_PATH}
       - RCLONE_CONFIG_SECRET_NAME=charon_rclone_config
       - NODE_HOSTNAME={{.Node.Hostname}}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     secrets:
       - source: charon_rclone_config
         target: charon_rclone_config
@@ -53,16 +83,8 @@ services:
       - /mnt/storage/backups:/data
       - ${RCLONE_CACHE_PATH}/archive:/root/.cache/rclone
 
-    entrypoint: /bin/sh
-    # Cron strategy: Setup config -> Create crontab -> Run cron in foreground
-    # Job 1 (03:00): Push new backups (COPY, not sync, to preserve history if local is pruned)
-    # Job 2 (04:00): Prune old backups (>90 days) to manage storage costs
-    command: -c "
-      /setup.sh;
-      echo '0 3 * * * rclone copy /data \"gdrive:${GDRIVE_BACKUP_PATH}/'$$NODE_HOSTNAME'\" --config /tmp/rclone.conf >> /var/log/cron.log 2>&1' > /etc/crontabs/root;
-      echo '0 4 * * * rclone delete \"gdrive:${GDRIVE_BACKUP_PATH}/'$$NODE_HOSTNAME'\" --min-age 90d --config /tmp/rclone.conf >> /var/log/cron.log 2>&1' >> /etc/crontabs/root;
-      echo 'Starting crond...';
-      crond -f -d 8"
+    entrypoint: /archive-job.sh
+    command: setup-cron
     networks:
       - aether-net
     labels:
@@ -75,16 +97,25 @@ services:
       dockerfile: Dockerfile
     deploy:
       restart_policy:
-        condition: on-failure
+        condition: any
+        delay: 10s
+        window: 60s
       placement:
         constraints:
           - node.role == manager
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          memory: 64M
     working_dir: /git
     healthcheck:
-      test: ["CMD", "test", "-f", ".git_ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "test -f .git_ready && (! test -f /tmp/charon_git_heartbeat || [ $$(($$(date +%s) - $$(stat -c %Y /tmp/charon_git_heartbeat))) -lt 7200 ]) || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     entrypoint: /bin/sh
     command: -c '
         git config --global safe.directory /git;
@@ -96,6 +127,7 @@ services:
       - GIT_USER_EMAIL=${GIT_USER_EMAIL}
       - GIT_USER_NAME=${GIT_USER_NAME}
       - ENV=${ENV}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     secrets:
       - source: charon_ssh_key
         target: charon_ssh_key

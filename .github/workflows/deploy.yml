@@ -43,6 +43,7 @@ jobs:
           GIT_USER_NAME: ${{ vars.GIT_USER_NAME || 'Charon' }}
           ENV: ${{ vars.ENV }}
           REGISTRY_PREFIX: ${{ vars.REGISTRY_PREFIX }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh "charon" docker-compose.yml
