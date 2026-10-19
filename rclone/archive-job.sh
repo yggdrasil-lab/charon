@@ -8,6 +8,15 @@ log() {
 NODE="${NODE_HOSTNAME:-$(hostname)}"
 CONF="/tmp/rclone.conf"
 
+notify_iris() {
+    _SEVERITY="$1"
+    _TITLE="$2"
+    _DETAILS="$3"
+    curl -s --max-time 5 --connect-timeout 3 -X POST http://iris:8000/notify/discord \
+        -H "Content-Type: application/json" \
+        -d "{\"service\":\"charon-archive\",\"bot_name\":\"Charon\",\"severity\":\"${_SEVERITY}\",\"title\":\"${_TITLE}\",\"details\":\"${_DETAILS}\",\"node\":\"${NODE}\"}" >/dev/null 2>&1 || true
+}
+
 case "$1" in
     copy)
         log "Starting nightly rclone copy for node ${NODE}..."
@@ -17,7 +26,7 @@ case "$1" in
         else
             EXIT_CODE=$?
             log "ERROR: Nightly rclone copy failed with exit code ${EXIT_CODE}."
-            notify-discord.sh "charon-archive" "error" "Nightly Backup Failed" "rclone copy /data to gdrive:${GDRIVE_BACKUP_PATH}/${NODE} failed with exit code ${EXIT_CODE}."
+            notify_iris "error" "Nightly Backup Failed" "rclone copy /data to gdrive:${GDRIVE_BACKUP_PATH}/${NODE} failed with exit code ${EXIT_CODE}."
             exit $EXIT_CODE
         fi
         ;;
@@ -29,7 +38,7 @@ case "$1" in
         else
             EXIT_CODE=$?
             log "ERROR: Nightly rclone prune failed with exit code ${EXIT_CODE}."
-            notify-discord.sh "charon-archive" "warning" "Backup Retention Prune Failed" "rclone delete (>90d) failed for node ${NODE} with exit code ${EXIT_CODE}."
+            notify_iris "warning" "Backup Retention Prune Failed" "rclone delete (>90d) failed for node ${NODE} with exit code ${EXIT_CODE}."
             exit $EXIT_CODE
         fi
         ;;

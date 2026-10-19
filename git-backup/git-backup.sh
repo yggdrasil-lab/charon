@@ -3,6 +3,13 @@ set -e
 
 echo "Initializing git backup script..."
 
+notify_iris() {
+    _SERVICE="${1:-git-backup}"; _SEVERITY="${2:-error}"; _TITLE="${3:-Alert}"; _DETAILS="${4:-No details}"
+    curl -s --max-time 5 --connect-timeout 3 -X POST http://iris:8000/notify/discord \
+        -H "Content-Type: application/json" \
+        -d "{\"service\":\"git-backup\",\"bot_name\":\"Charon\",\"severity\":\"${_SEVERITY}\",\"title\":\"${_TITLE}\",\"details\":\"${_DETAILS}\"}" >/dev/null 2>&1 || true
+}
+
 # Validate that necessary environment variables are set
 if [ -z "$GIT_USER_EMAIL" ] || [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_REPO_URL" ]; then
   echo "Error: One or more required environment variables are not set."
@@ -122,7 +129,7 @@ while [ "$STOP_REQUESTED" = false ]; do
            echo "Critical: Aggressive resolution failed. Aborting."
            git rebase --abort || rm -rf .git/rebase-merge
            echo "Aborted rebase. Backup cycle skipped."
-           /usr/local/bin/notify-discord.sh "git-backup" "error" "Rebase Conflict Resolution Failed" "Hourly backup cycle skipped because git rebase conflict could not be automatically resolved."
+           notify_iris "git-backup" "error" "Rebase Conflict Resolution Failed" "Hourly backup cycle skipped because git rebase conflict could not be automatically resolved."
        fi
     else
        echo "Rebase successful. Local state preserved."
@@ -158,7 +165,7 @@ while [ "$STOP_REQUESTED" = false ]; do
       if git pull --rebase origin main; then
           if ! git push origin main; then
               echo "Final push failed."
-              /usr/local/bin/notify-discord.sh "git-backup" "error" "Git Push Failed" "Failed to push hourly vault commits to remote after rebase."
+              notify_iris "git-backup" "error" "Git Push Failed" "Failed to push hourly vault commits to remote after rebase."
           fi
       else
           echo "Rebase failed. Prioritizing LOCAL state as source of truth."
@@ -182,7 +189,7 @@ while [ "$STOP_REQUESTED" = false ]; do
           echo "Pushing consolidated state..."
           if ! (git push origin main || git push --force origin main); then
               echo "Pushing consolidated state failed."
-              /usr/local/bin/notify-discord.sh "git-backup" "error" "Consolidated Git Push Failed" "Failed to push consolidated backup state even with force push."
+              notify_iris "git-backup" "error" "Consolidated Git Push Failed" "Failed to push consolidated backup state even with force push."
           fi
       fi
   else

@@ -6,6 +6,15 @@ log() {
     echo "[$(date)] $1"
 }
 
+notify_iris() {
+    _SEVERITY="$1"
+    _TITLE="$2"
+    _DETAILS="$3"
+    curl -s --max-time 5 --connect-timeout 3 -X POST http://iris:8000/notify/discord \
+        -H "Content-Type: application/json" \
+        -d "{\"service\":\"charon-sync\",\"bot_name\":\"Charon\",\"severity\":\"${_SEVERITY}\",\"title\":\"${_TITLE}\",\"details\":\"${_DETAILS}\"}" >/dev/null 2>&1 || true
+}
+
 # Graceful Shutdown Handling
 STOP_REQUESTED=false
 SYNC_IN_PROGRESS=false
@@ -61,7 +70,7 @@ while [ "$STOP_REQUESTED" = false ]; do
              else
                  log "WARNING: Initial resync failed entirely (missing state files). Cache will remain empty, retrying next loop..."
                  find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
-                 notify-discord.sh "charon-sync" "error" "Initial Resync Failed" "Initial bisync resync failed entirely (missing state files). Retrying next loop."
+                 notify_iris "error" "Initial Resync Failed" "Initial bisync resync failed entirely (missing state files). Retrying next loop."
              fi
         else
              log "Initial resync successful."
@@ -78,7 +87,7 @@ while [ "$STOP_REQUESTED" = false ]; do
             else
                 log "ERROR: Sync failed entirely (missing state files). Clearing bisync cache to force resync on next run."
                 find /var/cache/rclone -mindepth 1 -delete 2>/dev/null || true
-                notify-discord.sh "charon-sync" "error" "Bisync Aborted (Cache Cleared)" "Sync failed with fatal state loss. Cache cleared; next cycle will trigger full resync."
+                notify_iris "error" "Bisync Aborted (Cache Cleared)" "Sync failed with fatal state loss. Cache cleared; next cycle will trigger full resync."
             fi
         else
             log "Sync successful."
