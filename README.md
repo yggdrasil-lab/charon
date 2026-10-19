@@ -39,9 +39,9 @@ Charon integrates with Discord for instant error alerting:
 ## Quick Deploy
 
 ```bash
-git submodule update --init --recursive
 chmod +x setup_host.sh && ./setup_host.sh
-./scripts/deploy.sh "charon" docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/deploy/deploy.sh -o /tmp/deploy.sh && chmod +x /tmp/deploy.sh
+/tmp/deploy.sh "charon" docker-compose.yml
 ```
 
 ## Full Documentation

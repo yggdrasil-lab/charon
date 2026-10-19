@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,8 +12,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Log in to Registry
         uses: docker/login-action@v3
@@ -26,9 +25,10 @@ jobs:
           SSH_KEY: ${{ secrets.VAULT_BACKUP_SSH_KEY }}
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
         run: |
-          chmod +x scripts/ensure_secret.sh
-          echo "CHARON_SSH_KEY_NAME=$(echo "$SSH_KEY" | ./scripts/ensure_secret.sh charon_ssh_key)" >> $GITHUB_ENV
-          echo "CHARON_RCLONE_CONFIG_NAME=$(echo "$RCLONE_CONFIG" | ./scripts/ensure_secret.sh charon_rclone_config)" >> $GITHUB_ENV
+          curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/deploy/ensure_secret.sh -o /tmp/ensure_secret.sh
+          chmod +x /tmp/ensure_secret.sh
+          echo "CHARON_SSH_KEY_NAME=$(echo "$SSH_KEY" | /tmp/ensure_secret.sh charon_ssh_key)" >> $GITHUB_ENV
+          echo "CHARON_RCLONE_CONFIG_NAME=$(echo "$RCLONE_CONFIG" | /tmp/ensure_secret.sh charon_rclone_config)" >> $GITHUB_ENV
 
       - name: Deploy Stack
         env:
@@ -45,5 +45,6 @@ jobs:
           REGISTRY_PREFIX: ${{ vars.REGISTRY_PREFIX }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          chmod +x scripts/deploy.sh
-          ./scripts/deploy.sh "charon" docker-compose.yml
+          curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/deploy/deploy.sh -o /tmp/deploy.sh
+          chmod +x /tmp/deploy.sh
+          /tmp/deploy.sh "charon" docker-compose.yml
