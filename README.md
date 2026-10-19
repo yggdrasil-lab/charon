@@ -25,12 +25,28 @@ graph TD
 - `aether-net` — external overlay for Google Drive API access
 - `internal` — stack-internal overlay
 
+## Failure Notifications & Monitoring
+
+Charon integrates with Discord for instant error alerting:
+- **Discord Webhook**: Configured via `DISCORD_ALERTS_WEBHOOK_URL` (GitHub secret or environment).
+- **Thread & User Auto-Add**:
+  - In **Forum Channels**, alerts automatically spawn a new thread (`🚨 Charon Alert: <Title>`).
+  - Set `DISCORD_USER_ID` (GitHub secret or var) to automatically mention and add your user to the thread.
+  - In standard text channels, alerts fall back gracefully to inline messages.
+- **Triggers**:
+  - `charon-sync`: Critical bisync errors, cache corruption / forced resync.
+  - `charon-archive`: Failures in nightly `rclone copy` (3am) or retention prune `rclone delete` (4am).
+  - `git-backup`: Unresolved git rebase divergence or remote push failures.
+- **Healthchecks**: Real-time heartbeat validation across all three services to detect stuck sync loops or frozen network operations.
+- **Resource Limits**: CPU (0.50) and memory limits (512M) enforced across all containers.
+
 ## Quick Deploy
 
+Host directories and permissions are managed centrally by [`yggdrasil-os`](https://github.com/yggdrasil-lab/yggdrasil-os).
+
 ```bash
-git submodule update --init --recursive
-chmod +x setup_host.sh && ./setup_host.sh
-./scripts/deploy.sh "charon" docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/deploy/deploy.sh -o /tmp/deploy.sh && chmod +x /tmp/deploy.sh
+/tmp/deploy.sh "charon" docker-compose.yml
 ```
 
 ## Full Documentation
