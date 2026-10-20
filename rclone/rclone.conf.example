@@ -1,0 +1,12 @@
+# Example rclone.conf for Charon
+# Mounted via Docker secret charon_rclone_config (from GitHub Secret RCLONE_CONFIG)
+#
+# Google Drive remote configured with a dedicated OAuth Client ID & Secret
+# to avoid global rate limits (googleapi: Error 403: RATE_LIMIT_EXCEEDED).
+
+[gdrive]
+type = drive
+client_id = YOUR_CLIENT_ID.apps.googleusercontent.com
+client_secret = YOUR_CLIENT_SECRET
+scope = drive
+token = {"access_token":"YOUR_ACCESS_TOKEN","token_type":"Bearer","refresh_token":"YOUR_REFRESH_TOKEN","expiry":"2026-10-20T12:00:00Z"}
