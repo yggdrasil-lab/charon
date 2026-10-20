@@ -49,6 +49,23 @@ curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/dep
 /tmp/deploy.sh "charon" docker-compose.yml
 ```
 
+## Google Drive Remote Configuration & Custom Client ID
+
+Charon uses an rclone config mounted from the Docker Swarm secret `charon_rclone_config` containing the `[gdrive]` remote definition.
+
+To avoid Google Drive API query rate limits (`rateLimitExceeded` 403 errors) and ensure uninterrupted sync, the `[gdrive]` remote should be configured with a dedicated OAuth `client_id` and `client_secret` rather than rclone's shared client ID.
+
+```ini
+[gdrive]
+type = drive
+client_id = <your-client-id>.apps.googleusercontent.com
+client_secret = <your-client-secret>
+scope = drive
+token = {"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
+```
+
+When rotating or updating the secret, follow standard Swarm secret rotation or recreate `charon_rclone_config` on Gaia and redeploy.
+
 ## Full Documentation
 
 Operational details, environment variables, secrets, backup architecture, pitfalls, and historical context live in the vault at `Areas/90-Infrastructure/Charon/Charon Stack.md`.
