@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+umask 0002
+
 echo "Initializing git backup script..."
 
 notify_iris() {
@@ -23,28 +25,30 @@ git config --global user.name "${GIT_USER_NAME}"
 
 # Setup SSH keys from Docker Secret
 echo "Setting up SSH keys..."
-mkdir -p /root/.ssh
+SSH_DIR="${HOME:-/tmp}/.ssh"
+mkdir -p "${SSH_DIR}"
 if [ -f "/run/secrets/charon_ssh_key" ]; then
     # Strip Windows-style carriage returns (\r)
-    tr -d '\r' < /run/secrets/charon_ssh_key > /root/.ssh/id_rsa
+    tr -d '\r' < /run/secrets/charon_ssh_key > "${SSH_DIR}/id_rsa"
     # Ensure there is a trailing newline
-    echo "" >> /root/.ssh/id_rsa
+    echo "" >> "${SSH_DIR}/id_rsa"
     
     echo "Debug Key Info:"
-    echo "Line count: $(wc -l < /root/.ssh/id_rsa)"
-    echo "First line: $(head -n 1 /root/.ssh/id_rsa)"
-    echo "Last line: $(tail -n 2 /root/.ssh/id_rsa | head -n 1)" # Print the line before the forced newline
+    echo "Line count: $(wc -l < "${SSH_DIR}/id_rsa")"
+    echo "First line: $(head -n 1 "${SSH_DIR}/id_rsa")"
+    echo "Last line: $(tail -n 2 "${SSH_DIR}/id_rsa" | head -n 1)" # Print the line before the forced newline
 fi
-chmod 700 /root/.ssh
-chmod 600 /root/.ssh/*
+chmod 700 "${SSH_DIR}"
+chmod 600 "${SSH_DIR}"/* 2>/dev/null || true
 
 # Add github.com to known_hosts
-if ! ssh-keygen -F github.com &> /dev/null; then
+if ! ssh-keygen -F github.com -f "${SSH_DIR}/known_hosts" &> /dev/null; then
   echo "Adding github.com to known_hosts..."
-  ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
+  ssh-keyscan github.com >> "${SSH_DIR}/known_hosts" 2>/dev/null
 fi
-chmod 600 /root/.ssh/known_hosts
+chmod 600 "${SSH_DIR}/known_hosts" 2>/dev/null || true
 
+export GIT_SSH_COMMAND="ssh -i ${SSH_DIR}/id_rsa -o UserKnownHostsFile=${SSH_DIR}/known_hosts -o StrictHostKeyChecking=accept-new"
 
 # Initialize git repository if it doesn't exist
 if [ ! -d ".git" ]; then
@@ -53,8 +57,9 @@ if [ ! -d ".git" ]; then
   git remote add origin "${GIT_REPO_URL}"
 fi
 
-# Always ensure the remote URL is up-to-date
+# Always ensure the remote URL and repository sharing are up-to-date
 git remote set-url origin "${GIT_REPO_URL}"
+git config core.sharedRepository all
 
 echo "Fetching latest changes from remote..."
 git fetch origin
