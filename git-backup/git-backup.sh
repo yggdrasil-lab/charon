@@ -3,6 +3,11 @@ set -e
 
 umask 0002
 
+# Ensure current UID exists in /etc/passwd for OpenSSH
+if ! getent passwd "$(id -u)" >/dev/null 2>&1; then
+    echo "charon:x:$(id -u):$(id -g):charon:${HOME:-/tmp}:/bin/sh" >> /etc/passwd 2>/dev/null || true
+fi
+
 echo "Initializing git backup script..."
 
 notify_iris() {
