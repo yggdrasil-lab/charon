@@ -150,7 +150,7 @@ while [ "$STOP_REQUESTED" = false ]; do
   git add .
   
   # 3. Check if there are any changes to commit (after the pull)
-  if git diff --staged --quiet; then
+  if git diff --staged --quiet --ignore-submodules=dirty; then
     echo "Working directory is clean (all changes committed). Proceeding to push..."
   else
     echo "Changes detected. Committing..."
