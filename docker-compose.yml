@@ -126,9 +126,10 @@ services:
         target: charon_authentik_postgres_password
     volumes:
       - /mnt/storage/backups:/backups
-      - /opt/odin/mnemosyne/data:/data/mnemosyne:ro
-      - /opt/odin/hermes:/data/hermes:ro
-      - /var/lib/docker/volumes/cerberus_lldap_data/_data:/data/lldap:ro
+      - /opt/odin/mnemosyne/data:/data/mnemosyne
+      - /opt/odin/hermes:/data/hermes
+      - /var/lib/docker/volumes/cerberus_lldap_data/_data:/data/lldap
+      - /opt/cerberus/authentik:/data/authentik
     networks:
       - aether-net
 
@@ -165,8 +166,8 @@ services:
       - BACKUP_KEEP_DAYS=30
     volumes:
       - /mnt/storage/backups:/backups
-      - /opt/cerberus/vaultwarden:/data/vaultwarden:ro
-      - /opt/comics/komga:/data/comics/komga:ro
+      - /opt/cerberus/vaultwarden:/data/vaultwarden
+      - /opt/comics/komga:/data/comics/komga
     networks:
       - aether-net
 
