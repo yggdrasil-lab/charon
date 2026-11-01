@@ -94,13 +94,11 @@ services:
       context: ./dumper
       dockerfile: Dockerfile
     deploy:
+      mode: global
       restart_policy:
         condition: any
         delay: 10s
         window: 60s
-      placement:
-        constraints:
-          - node.role == manager
       resources:
         limits:
           cpus: '0.50'
@@ -117,19 +115,18 @@ services:
       - NODE_HOSTNAME={{.Node.Hostname}}
       - TZ=Pacific/Auckland
       - BACKUP_KEEP_DAYS=30
-      - EIR_DB_HOST=eir-db
-      - EIR_DB_PORT=5432
-      - EIR_DB_USER=eir
-      - EIR_DB_PASSWORD=eir
-      - EIR_DB_NAME=eir
-      - KRATOS_DB_HOST=kratos-db
-      - KRATOS_DB_PORT=5432
-      - KRATOS_DB_USER=kratos
-      - KRATOS_DB_PASSWORD=kratos
-      - KRATOS_DB_NAME=kratos
+      - EIR_DB_PASSWORD=${EIR_DB_PASSWORD}
+      - KRATOS_DB_PASSWORD=${KRATOS_DB_PASSWORD}
+    secrets:
+      - source: charon_authentik_postgres_password
+        target: charon_authentik_postgres_password
     volumes:
       - /mnt/storage/backups:/backups
       - /opt/odin/mnemosyne/data:/data/mnemosyne:ro
+      - /opt/odin/hermes:/data/hermes:ro
+      - /var/lib/docker/volumes/cerberus_lldap_data/_data:/data/lldap:ro
+      - /opt/cerberus/vaultwarden:/data/vaultwarden:ro
+      - /opt/comics/komga:/data/comics/komga:ro
     networks:
       - aether-net
     labels:
@@ -198,3 +195,6 @@ secrets:
   charon_ssh_key:
     external: true
     name: ${CHARON_SSH_KEY_NAME}
+  charon_authentik_postgres_password:
+    external: true
+    name: ${CHARON_AUTHENTIK_POSTGRES_PASSWORD_NAME}
