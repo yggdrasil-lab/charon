@@ -17,22 +17,39 @@ fi
 list_backups() {
   _TARGET="$1"
   if [ -n "$_TARGET" ]; then
+    _CONFIG="$(jq -c --arg name "$_TARGET" '.[] | select(.name == $name)' "${TARGETS_CONFIG}" | head -n 1)"
+    _TYPE=""
+    if [ -n "$_CONFIG" ]; then
+      _TYPE="$(echo "$_CONFIG" | jq -r '.type')"
+    fi
     _DIR="${BACKUP_BASE}/${_TARGET}"
     if [ ! -d "$_DIR" ]; then
       echo "No backup directory found for '${_TARGET}' at ${_DIR}."
       return 0
     fi
+    _PATTERN="*"
+    case "$_TYPE" in
+      postgres) _PATTERN="*.dump" ;;
+      sqlite)   _PATTERN="*.sqlite" ;;
+      archive)  _PATTERN="*.tar.gz" ;;
+    esac
     echo "=== Available backups for '${_TARGET}' (${_DIR}) ==="
-    find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) -exec ls -lh {} + | awk '{print $9, "(" $5 ")", "Modified: " $6, $7, $8}'
+    find "$_DIR" -maxdepth 1 -type f -name "$_PATTERN" -exec ls -lh {} + | awk '{print $9, "(" $5 ")", "Modified: " $6, $7, $8}'
   else
     echo "=== Backup Inventory on node '${NODE}' (${BACKUP_BASE}) ==="
     jq -c --arg node "$NODE" '.[] | select(.node == null or .node == "*" or .node == $node)' "${TARGETS_CONFIG}" | while read -r t; do
       _NAME="$(echo "$t" | jq -r '.name')"
       _TYPE="$(echo "$t" | jq -r '.type')"
       _DIR="${BACKUP_BASE}/${_NAME}"
+      _PATTERN="*"
+      case "$_TYPE" in
+        postgres) _PATTERN="*.dump" ;;
+        sqlite)   _PATTERN="*.sqlite" ;;
+        archive)  _PATTERN="*.tar.gz" ;;
+      esac
       if [ -d "$_DIR" ]; then
-        _COUNT="$(find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) | wc -l)"
-        _LATEST="$(find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) -exec ls -1t {} + 2>/dev/null | head -n 1)"
+        _COUNT="$(find "$_DIR" -maxdepth 1 -type f -name "$_PATTERN" | wc -l)"
+        _LATEST="$(find "$_DIR" -maxdepth 1 -type f -name "$_PATTERN" -exec ls -1t {} + 2>/dev/null | head -n 1)"
         if [ -n "$_LATEST" ]; then
           _SIZE="$(ls -lh "$_LATEST" | awk '{print $5}')"
           printf "  * %-20s [%s] - %d snapshot(s), Latest: %s (%s)\n" "$_NAME" "$_TYPE" "$_COUNT" "$(basename "$_LATEST")" "$_SIZE"
@@ -65,6 +82,13 @@ restore_target() {
     exit 1
   fi
 
+  _PATTERN="*"
+  case "$_TYPE" in
+    postgres) _PATTERN="*.dump" ;;
+    sqlite)   _PATTERN="*.sqlite" ;;
+    archive)  _PATTERN="*.tar.gz" ;;
+  esac
+
   _FILE=""
   if [ -n "$_REQ_FILE" ] && [ "$_REQ_FILE" != "latest" ] && [ "$_REQ_FILE" != "--confirm" ]; then
     if [ -f "$_REQ_FILE" ]; then
@@ -76,9 +100,9 @@ restore_target() {
       exit 1
     fi
   else
-    _FILE="$(find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) -exec ls -1t {} + 2>/dev/null | head -n 1)"
+    _FILE="$(find "$_DIR" -maxdepth 1 -type f -name "$_PATTERN" -exec ls -1t {} + 2>/dev/null | head -n 1)"
     if [ -z "$_FILE" ]; then
-      log "ERROR: No snapshot files found in '${_DIR}'."
+      log "ERROR: No matching snapshot files (${_PATTERN}) found in '${_DIR}'."
       exit 1
     fi
   fi

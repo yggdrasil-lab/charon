@@ -72,7 +72,7 @@ backup_postgres() {
   fi
 
   if [ -n "${KEEP_DAYS}" ] && [ "${KEEP_DAYS}" -gt 0 ]; then
-    find "${_DIR}" -name "${_BASE_NAME}_db_*.dump" -type f -mtime +"${KEEP_DAYS}" -delete
+    find "${_DIR}" -maxdepth 1 -name "${_BASE_NAME}_db_*.dump" -type f -mtime +"${KEEP_DAYS}" -delete
   fi
   return 0
 }
@@ -111,7 +111,7 @@ backup_sqlite() {
   fi
 
   if [ -n "${KEEP_DAYS}" ] && [ "${KEEP_DAYS}" -gt 0 ]; then
-    find "${_DIR}" -name "${_BASE_NAME}_db_*.sqlite" -type f -mtime +"${KEEP_DAYS}" -delete
+    find "${_DIR}" -maxdepth 1 -name "${_BASE_NAME}_db_*.sqlite" -type f -mtime +"${KEEP_DAYS}" -delete
   fi
   return 0
 }
@@ -169,7 +169,7 @@ backup_archive() {
   fi
 
   if [ -n "${KEEP_DAYS}" ] && [ "${KEEP_DAYS}" -gt 0 ]; then
-    find "${_DIR}" -name "${_BASE_NAME}_config_*.tar.gz" -type f -mtime +"${KEEP_DAYS}" -delete
+    find "${_DIR}" -maxdepth 1 -name "${_BASE_NAME}_config_*.tar.gz" -type f -mtime +"${KEEP_DAYS}" -delete
   fi
   return 0
 }
