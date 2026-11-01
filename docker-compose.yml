@@ -4,6 +4,8 @@ services:
     build:
       context: ./rclone
       dockerfile: Dockerfile
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
     user: "1000:1000"
     stop_grace_period: 120s
     deploy:
@@ -44,14 +46,14 @@ services:
     networks:
       - aether-net
       - internal
-    labels:
-      - "com.docker.compose.project=${STACK_NAME}"
 
   charon-archive:
     image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME}
     build:
       context: ./rclone
       dockerfile: Dockerfile
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
     deploy:
       mode: global
       restart_policy:
@@ -85,14 +87,14 @@ services:
     command: setup-cron
     networks:
       - aether-net
-    labels:
-      - "com.docker.compose.project=${STACK_NAME}"
 
   charon-dumper-gaia:
     image: ${REGISTRY_PREFIX}charon-dumper:${STACK_NAME}
     build:
       context: ./dumper
       dockerfile: Dockerfile
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
     deploy:
       restart_policy:
         condition: any
@@ -129,14 +131,14 @@ services:
       - /var/lib/docker/volumes/cerberus_lldap_data/_data:/data/lldap:ro
     networks:
       - aether-net
-    labels:
-      - "com.docker.compose.project=${STACK_NAME}"
 
   charon-dumper-muspelheim:
     image: ${REGISTRY_PREFIX}charon-dumper:${STACK_NAME}
     build:
       context: ./dumper
       dockerfile: Dockerfile
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
     deploy:
       restart_policy:
         condition: any
@@ -167,14 +169,14 @@ services:
       - /opt/comics/komga:/data/comics/komga:ro
     networks:
       - aether-net
-    labels:
-      - "com.docker.compose.project=${STACK_NAME}"
 
   git-backup:
     image: ${REGISTRY_PREFIX}charon-git:${STACK_NAME}
     build:
       context: ./git-backup
       dockerfile: Dockerfile
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
     user: "1000:1000"
     deploy:
       restart_policy:
@@ -217,8 +219,6 @@ services:
     networks:
       - aether-net
       - internal
-    labels:
-      - "com.docker.compose.project=${STACK_NAME}"
 
 networks:
   aether-net:
