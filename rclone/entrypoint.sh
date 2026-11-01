@@ -97,12 +97,18 @@ while [ "$STOP_REQUESTED" = false ]; do
 
     SYNC_IN_PROGRESS=false
     touch /tmp/charon_sync_heartbeat
+
+    if [ "$STOP_REQUESTED" = true ]; then
+        log "Shutdown was requested during sync. Exiting gracefully without sleep..."
+        break
+    fi
+
     log "Sync complete. Sleeping for ${SYNC_INTERVAL} seconds..."
     
     # Sleep with interrupt capability
     sleep "$SYNC_INTERVAL" &
     SLEEP_PID=$!
-    wait "$SLEEP_PID"
+    wait "$SLEEP_PID" 2>/dev/null || true
     SLEEP_PID=""
 done
 
