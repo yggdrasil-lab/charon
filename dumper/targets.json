@@ -1,0 +1,65 @@
+[
+  {
+    "name": "eir",
+    "type": "postgres",
+    "node": "gaia",
+    "host": "eir-db",
+    "port": 5432,
+    "user": "eir",
+    "password_env": "EIR_DB_PASSWORD",
+    "password_default": "eir",
+    "database": "eir"
+  },
+  {
+    "name": "kratos",
+    "type": "postgres",
+    "node": "gaia",
+    "host": "kratos-db",
+    "port": 5432,
+    "user": "kratos",
+    "password_env": "KRATOS_DB_PASSWORD",
+    "password_default": "kratos",
+    "database": "kratos"
+  },
+  {
+    "name": "authentik",
+    "type": "postgres",
+    "node": "gaia",
+    "host": "authentik-postgres",
+    "port": 5432,
+    "user": "authentik",
+    "password_file": "/run/secrets/charon_authentik_postgres_password",
+    "password_env": "AUTHENTIK_POSTGRES_PASSWORD",
+    "database": "authentik"
+  },
+  {
+    "name": "lldap",
+    "type": "sqlite",
+    "node": "gaia",
+    "source": "/data/lldap/users.db"
+  },
+  {
+    "name": "odin/mnemosyne",
+    "type": "sqlite",
+    "node": "gaia",
+    "source": "/data/mnemosyne/mnemosyne.db"
+  },
+  {
+    "name": "odin/hermes",
+    "type": "sqlite",
+    "node": "gaia",
+    "source": "/data/hermes/kanban.db"
+  },
+  {
+    "name": "vaultwarden",
+    "type": "sqlite",
+    "node": "muspelheim",
+    "source": "/data/vaultwarden/db.sqlite3"
+  },
+  {
+    "name": "komga",
+    "type": "sqlite",
+    "node": "muspelheim",
+    "source": "/data/comics/komga/database.sqlite"
+  }
+]

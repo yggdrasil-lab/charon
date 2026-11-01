@@ -24,11 +24,13 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.VAULT_BACKUP_SSH_KEY }}
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+          AUTHENTIK_POSTGRES_PASSWORD: ${{ secrets.AUTHENTIK_POSTGRES_PASSWORD }}
         run: |
           curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/deploy/ensure_secret.sh -o /tmp/ensure_secret.sh
           chmod +x /tmp/ensure_secret.sh
           echo "CHARON_SSH_KEY_NAME=$(echo "$SSH_KEY" | /tmp/ensure_secret.sh charon_ssh_key)" >> $GITHUB_ENV
           echo "CHARON_RCLONE_CONFIG_NAME=$(echo "$RCLONE_CONFIG" | /tmp/ensure_secret.sh charon_rclone_config)" >> $GITHUB_ENV
+          echo "CHARON_AUTHENTIK_POSTGRES_PASSWORD_NAME=$(echo "$AUTHENTIK_POSTGRES_PASSWORD" | /tmp/ensure_secret.sh charon_authentik_postgres_password)" >> $GITHUB_ENV
 
       - name: Deploy Stack
         env:
@@ -37,12 +39,17 @@ jobs:
           RCLONE_CACHE_PATH: ${{ vars.RCLONE_CACHE_PATH }}
           GDRIVE_VAULT_PATH: ${{ vars.GDRIVE_VAULT_PATH }}
           GDRIVE_BACKUP_PATH: ${{ vars.GDRIVE_BACKUP_PATH }}
+          # Database Passwords
+          EIR_DB_PASSWORD: ${{ vars.EIR_DB_PASSWORD || 'eir' }}
+          KRATOS_DB_PASSWORD: ${{ vars.KRATOS_DB_PASSWORD || 'kratos' }}
           # Git Config
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL || 'charon@tienzo.net' }}
           GIT_USER_NAME: ${{ vars.GIT_USER_NAME || 'Charon' }}
           ENV: ${{ vars.ENV }}
           REGISTRY_PREFIX: ${{ vars.REGISTRY_PREFIX }}
+          # Secret Names
+          CHARON_AUTHENTIK_POSTGRES_PASSWORD_NAME: ${{ env.CHARON_AUTHENTIK_POSTGRES_PASSWORD_NAME }}
         run: |
           curl -fsSL https://raw.githubusercontent.com/yggdrasil-lab/yggdrasil-os/main/deploy/deploy.sh -o /tmp/deploy.sh
           chmod +x /tmp/deploy.sh
