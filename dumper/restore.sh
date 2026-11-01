@@ -199,9 +199,116 @@ restore_target() {
   fi
 }
 
+verify_single_target() {
+  _TARGET="$1"
+  _CONFIG="$(jq -c --arg name "$_TARGET" '.[] | select(.name == $name)' "${TARGETS_CONFIG}" | head -n 1)"
+  if [ -z "$_CONFIG" ]; then
+    printf "  [FAIL] %-20s - Target not found in config\n" "$_TARGET"
+    return 1
+  fi
+
+  _TYPE="$(echo "$_CONFIG" | jq -r '.type')"
+  _DIR="${BACKUP_BASE}/${_TARGET}"
+  if [ ! -d "$_DIR" ]; then
+    printf "  [FAIL] %-20s - Directory not found (%s)\n" "$_TARGET" "$_DIR"
+    return 1
+  fi
+
+  _PATTERN="*"
+  case "$_TYPE" in
+    postgres) _PATTERN="*.dump" ;;
+    sqlite)   _PATTERN="*.sqlite" ;;
+    archive)  _PATTERN="*.tar.gz" ;;
+  esac
+
+  _FILE="$(find "$_DIR" -maxdepth 1 -type f -name "$_PATTERN" -exec ls -1t {} + 2>/dev/null | head -n 1)"
+  if [ -z "$_FILE" ]; then
+    printf "  [FAIL] %-20s - No matching snapshots found (%s)\n" "$_TARGET" "$_PATTERN"
+    return 1
+  fi
+
+  _SIZE="$(ls -lh "$_FILE" | awk '{print $5}')"
+  _FNAME="$(basename "$_FILE")"
+
+  if [ "$_TYPE" = "postgres" ]; then
+    if pg_restore --list "$_FILE" > /tmp/verify_pg.toc 2>&1; then
+      _ENTRIES="$(grep -c "^[0-9]" /tmp/verify_pg.toc 2>/dev/null || true)"
+      rm -f /tmp/verify_pg.toc
+      printf "  [PASS] %-20s [postgres] - %s (%s, %s TOC entries)\n" "$_TARGET" "$_FNAME" "$_SIZE" "$_ENTRIES"
+      return 0
+    else
+      rm -f /tmp/verify_pg.toc
+      printf "  [FAIL] %-20s [postgres] - pg_restore TOC verification failed on %s\n" "$_TARGET" "$_FNAME"
+      return 1
+    fi
+
+  elif [ "$_TYPE" = "sqlite" ]; then
+    _SANDBOX="/tmp/sandbox_$$.sqlite"
+    rm -f "$_SANDBOX"
+    if sqlite3 "$_SANDBOX" ".restore '$_FILE'" >/dev/null 2>&1; then
+      _CHECK="$(sqlite3 "$_SANDBOX" "PRAGMA integrity_check;" 2>&1 || true)"
+      if [ "$_CHECK" = "ok" ]; then
+        _TABLES="$(sqlite3 "$_SANDBOX" "SELECT count(*) FROM sqlite_master WHERE type='table';" 2>/dev/null || true)"
+        rm -f "$_SANDBOX"
+        printf "  [PASS] %-20s [sqlite]   - %s (%s, %s tables, integrity OK)\n" "$_TARGET" "$_FNAME" "$_SIZE" "$_TABLES"
+        return 0
+      else
+        rm -f "$_SANDBOX"
+        printf "  [FAIL] %-20s [sqlite]   - Integrity check failed (%s) on %s\n" "$_TARGET" "$_CHECK" "$_FNAME"
+        return 1
+      fi
+    else
+      rm -f "$_SANDBOX"
+      printf "  [FAIL] %-20s [sqlite]   - sqlite3 .restore failed on %s\n" "$_TARGET" "$_FNAME"
+      return 1
+    fi
+
+  elif [ "$_TYPE" = "archive" ]; then
+    if tar -tzf "$_FILE" > /tmp/verify_tar.lst 2>&1; then
+      _FILES="$(wc -l < /tmp/verify_tar.lst 2>/dev/null | tr -d ' ')"
+      rm -f /tmp/verify_tar.lst
+      printf "  [PASS] %-20s [archive]  - %s (%s, %s entries)\n" "$_TARGET" "$_FNAME" "$_SIZE" "$_FILES"
+      return 0
+    else
+      rm -f /tmp/verify_tar.lst
+      printf "  [FAIL] %-20s [archive]  - tar decompression failed on %s\n" "$_TARGET" "$_FNAME"
+      return 1
+    fi
+  fi
+}
+
+verify_backups() {
+  _TARGET="$1"
+  if [ -n "$_TARGET" ] && [ "$_TARGET" != "--all" ]; then
+    echo "=== Verifying Backup for Target '${_TARGET}' on node '${NODE}' ==="
+    verify_single_target "$_TARGET"
+  else
+    echo "=== Auditing Backup Snapshot Integrity on node '${NODE}' ==="
+    _TOTAL=0
+    _PASSED=0
+    _FAILED=0
+    for t in $(jq -r --arg node "$NODE" '.[] | select(.node == null or .node == "*" or .node == $node) | .name' "${TARGETS_CONFIG}"); do
+      _TOTAL=$((_TOTAL + 1))
+      if verify_single_target "$t"; then
+        _PASSED=$((_PASSED + 1))
+      else
+        _FAILED=$((_FAILED + 1))
+      fi
+    done
+    echo "----------------------------------------------------------------------"
+    echo "Integrity Audit Complete: ${_PASSED} passed, ${_FAILED} failed out of ${_TOTAL} targets."
+    if [ "$_FAILED" -gt 0 ]; then
+      return 1
+    fi
+  fi
+}
+
 case "$1" in
   list|ls)
     list_backups "$2"
+    ;;
+  verify|check)
+    verify_backups "$2"
     ;;
   restore)
     if [ -z "$2" ]; then
@@ -214,11 +321,12 @@ case "$1" in
     echo "Charon Database & Config Restore Utility"
     echo ""
     echo "Usage:"
-    echo "  $0 list                     List all targets and available snapshots"
-    echo "  $0 list <target>            List snapshots for a specific target"
-    echo "  $0 restore <target>         Restore latest snapshot for target (prompts confirmation)"
-    echo "  $0 restore <target> <file>  Restore specific snapshot file"
-    echo "  $0 restore <target> latest --confirm   Restore non-interactively"
+    echo "  $0 list                               List all targets and available snapshots"
+    echo "  $0 list <target>                      List snapshots for a specific target"
+    echo "  $0 verify [target|--all]              Verify snapshot integrity non-destructively"
+    echo "  $0 restore <target>                   Restore latest snapshot for target (prompts confirmation)"
+    echo "  $0 restore <target> <file>            Restore specific snapshot file"
+    echo "  $0 restore <target> latest --confirm  Restore non-interactively"
     echo ""
     exit 1
     ;;
