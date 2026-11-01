@@ -88,17 +88,19 @@ services:
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
-  charon-dumper:
+  charon-dumper-gaia:
     image: ${REGISTRY_PREFIX}charon-dumper:${STACK_NAME}
     build:
       context: ./dumper
       dockerfile: Dockerfile
     deploy:
-      mode: global
       restart_policy:
         condition: any
         delay: 10s
         window: 60s
+      placement:
+        constraints:
+          - node.hostname == gaia
       resources:
         limits:
           cpus: '0.50'
@@ -112,7 +114,7 @@ services:
       retries: 3
       start_period: 30s
     environment:
-      - NODE_HOSTNAME={{.Node.Hostname}}
+      - NODE_HOSTNAME=gaia
       - TZ=Pacific/Auckland
       - BACKUP_KEEP_DAYS=30
       - EIR_DB_PASSWORD=${EIR_DB_PASSWORD}
@@ -125,6 +127,42 @@ services:
       - /opt/odin/mnemosyne/data:/data/mnemosyne:ro
       - /opt/odin/hermes:/data/hermes:ro
       - /var/lib/docker/volumes/cerberus_lldap_data/_data:/data/lldap:ro
+    networks:
+      - aether-net
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
+
+  charon-dumper-muspelheim:
+    image: ${REGISTRY_PREFIX}charon-dumper:${STACK_NAME}
+    build:
+      context: ./dumper
+      dockerfile: Dockerfile
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 10s
+        window: 60s
+      placement:
+        constraints:
+          - node.hostname == muspelheim
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "pgrep", "crond"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    environment:
+      - NODE_HOSTNAME=muspelheim
+      - TZ=Pacific/Auckland
+      - BACKUP_KEEP_DAYS=30
+    volumes:
+      - /mnt/storage/backups:/backups
       - /opt/cerberus/vaultwarden:/data/vaultwarden:ro
       - /opt/comics/komga:/data/comics/komga:ro
     networks:
