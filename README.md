@@ -17,6 +17,7 @@ graph TD
 | Service | Role | Schedule |
 |---------|------|----------|
 | charon-sync | Bi-directional vault sync with Google Drive via rclone bisync | Every 5min |
+| charon-dumper | Centralized nightly dump of cluster databases (Eir, Kratos, Mnemosyne) | 2am NZT |
 | charon-archive | Nightly backup of infrastructure dumps to Google Drive | 3am NZT |
 | git-backup | Hourly git commits of vault to private GitHub repo | Hourly |
 

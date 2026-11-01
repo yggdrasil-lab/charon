@@ -1,6 +1,6 @@
 services:
   charon-sync:
-    image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME:-latest}
+    image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME}
     build:
       context: ./rclone
       dockerfile: Dockerfile
@@ -48,7 +48,7 @@ services:
       - "com.docker.compose.project=${STACK_NAME}"
 
   charon-archive:
-    image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME:-latest}
+    image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME}
     build:
       context: ./rclone
       dockerfile: Dockerfile
@@ -88,8 +88,55 @@ services:
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
 
+  charon-dumper:
+    image: ${REGISTRY_PREFIX}charon-dumper:${STACK_NAME}
+    build:
+      context: ./dumper
+      dockerfile: Dockerfile
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 10s
+        window: 60s
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "pgrep", "crond"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    environment:
+      - NODE_HOSTNAME={{.Node.Hostname}}
+      - TZ=Pacific/Auckland
+      - BACKUP_KEEP_DAYS=30
+      - EIR_DB_HOST=eir-db
+      - EIR_DB_PORT=5432
+      - EIR_DB_USER=eir
+      - EIR_DB_PASSWORD=eir
+      - EIR_DB_NAME=eir
+      - KRATOS_DB_HOST=kratos-db
+      - KRATOS_DB_PORT=5432
+      - KRATOS_DB_USER=kratos
+      - KRATOS_DB_PASSWORD=kratos
+      - KRATOS_DB_NAME=kratos
+    volumes:
+      - /mnt/storage/backups:/backups
+      - /opt/odin/mnemosyne/data:/data/mnemosyne:ro
+    networks:
+      - aether-net
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
+
   git-backup:
-    image: ${REGISTRY_PREFIX}charon-git:${STACK_NAME:-latest}
+    image: ${REGISTRY_PREFIX}charon-git:${STACK_NAME}
     build:
       context: ./git-backup
       dockerfile: Dockerfile
