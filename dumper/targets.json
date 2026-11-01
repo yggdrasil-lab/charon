@@ -33,6 +33,13 @@
     "database": "authentik"
   },
   {
+    "name": "authentik/data",
+    "type": "archive",
+    "node": "gaia",
+    "source_dir": "/data/authentik",
+    "paths": ["media", "custom-templates"]
+  },
+  {
     "name": "lldap",
     "type": "sqlite",
     "node": "gaia",
@@ -61,5 +68,12 @@
     "type": "sqlite",
     "node": "muspelheim",
     "source": "/data/comics/komga/database.sqlite"
+  },
+  {
+    "name": "komga/config",
+    "type": "archive",
+    "node": "muspelheim",
+    "source_dir": "/data/comics/komga",
+    "paths": ["application.yml"]
   }
 ]

@@ -116,6 +116,64 @@ backup_sqlite() {
   return 0
 }
 
+backup_archive() {
+  _TARGET="$1"
+  _SOURCE_DIR="$2"
+  _PATHS="$3"
+  _DIR="${BACKUP_BASE}/${_TARGET}"
+  _BASE_NAME="$(basename "${_TARGET}")"
+
+  log "Processing Archive target '${_TARGET}' (${_SOURCE_DIR})..."
+  mkdir -p "${_DIR}"
+
+  if [ ! -d "${_SOURCE_DIR}" ]; then
+    log "WARNING: Source directory '${_SOURCE_DIR}' does not exist for '${_TARGET}'. Skipping."
+    FAILURE_COUNT=$((FAILURE_COUNT + 1))
+    SUMMARY_MSGS="${SUMMARY_MSGS}
+- ${_TARGET}: Directory not found (${_SOURCE_DIR})"
+    return 1
+  fi
+
+  _EXISTING_PATHS=""
+  for p in ${_PATHS}; do
+    if [ -e "${_SOURCE_DIR}/${p}" ]; then
+      _EXISTING_PATHS="${_EXISTING_PATHS} ${p}"
+    else
+      log "INFO: Path '${p}' not present in '${_SOURCE_DIR}', skipping."
+    fi
+  done
+
+  if [ -z "${_EXISTING_PATHS}" ]; then
+    log "WARNING: None of the specified paths exist in '${_SOURCE_DIR}' for '${_TARGET}'. Skipping."
+    FAILURE_COUNT=$((FAILURE_COUNT + 1))
+    SUMMARY_MSGS="${SUMMARY_MSGS}
+- ${_TARGET}: No matching paths in ${_SOURCE_DIR}"
+    return 1
+  fi
+
+  _FILE="${_DIR}/${_BASE_NAME}_config_${TIMESTAMP}.tar.gz"
+  # shellcheck disable=SC2086
+  if tar -czf "${_FILE}" -C "${_SOURCE_DIR}" ${_EXISTING_PATHS}; then
+    _SIZE="$(ls -lh "${_FILE}" | awk '{print $5}')"
+    log "SUCCESS: Archived '${_TARGET}' (${_SIZE}) to ${_FILE}"
+    SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    SUMMARY_MSGS="${SUMMARY_MSGS}
+- ${_TARGET}: ${_SIZE} (Config Archive)"
+  else
+    log "ERROR: tar archiving failed for '${_TARGET}'."
+    rm -f "${_FILE}"
+    FAILURE_COUNT=$((FAILURE_COUNT + 1))
+    SUMMARY_MSGS="${SUMMARY_MSGS}
+- ${_TARGET}: tar failed"
+    return 1
+  fi
+
+  if [ -n "${KEEP_DAYS}" ] && [ "${KEEP_DAYS}" -gt 0 ]; then
+    find "${_DIR}" -name "${_BASE_NAME}_config_*.tar.gz" -type f -mtime +"${KEEP_DAYS}" -delete
+  fi
+  return 0
+}
+
 log "=== Starting Centralized Database Backup Run on node ${NODE} ==="
 
 if [ ! -f "${TARGETS_CONFIG}" ]; then
@@ -156,6 +214,12 @@ while IFS= read -r target; do
   elif [ "$_TYPE" = "sqlite" ]; then
     _SOURCE="$(echo "$target" | jq -r '.source')"
     backup_sqlite "$_NAME" "$_SOURCE" || true
+
+  elif [ "$_TYPE" = "archive" ]; then
+    _SOURCE_DIR="$(echo "$target" | jq -r '.source_dir')"
+    _PATHS="$(echo "$target" | jq -r '.paths[]' 2>/dev/null | tr '\n' ' ')"
+    backup_archive "$_NAME" "$_SOURCE_DIR" "$_PATHS" || true
+
   else
     log "WARNING: Unknown target type '${_TYPE}' for target '${_NAME}'. Skipping."
   fi
@@ -179,7 +243,7 @@ Succeeded: ${SUCCESS_COUNT}, Failed: ${FAILURE_COUNT}
 Targets:${SUMMARY_MSGS}"
 else
   notify_iris "info" "Daily Database Backup Succeeded" "Node: ${NODE}
-All ${SUCCESS_COUNT} databases dumped successfully.
+All ${SUCCESS_COUNT} targets backed up successfully.
 
 Targets:${SUMMARY_MSGS}
 

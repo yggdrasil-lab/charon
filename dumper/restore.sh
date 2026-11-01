@@ -1,0 +1,201 @@
+#!/bin/sh
+set -e
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] $1"
+}
+
+NODE="${NODE_HOSTNAME:-$(hostname)}"
+BACKUP_BASE="${BACKUP_DIR:-/backups}"
+TARGETS_CONFIG="${TARGETS_CONFIG:-/etc/charon-dumper/targets.json}"
+
+if [ ! -f "${TARGETS_CONFIG}" ]; then
+  log "ERROR: Configuration file '${TARGETS_CONFIG}' not found."
+  exit 1
+fi
+
+list_backups() {
+  _TARGET="$1"
+  if [ -n "$_TARGET" ]; then
+    _DIR="${BACKUP_BASE}/${_TARGET}"
+    if [ ! -d "$_DIR" ]; then
+      echo "No backup directory found for '${_TARGET}' at ${_DIR}."
+      return 0
+    fi
+    echo "=== Available backups for '${_TARGET}' (${_DIR}) ==="
+    find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) -exec ls -lh {} + | awk '{print $9, "(" $5 ")", "Modified: " $6, $7, $8}'
+  else
+    echo "=== Backup Inventory on node '${NODE}' (${BACKUP_BASE}) ==="
+    jq -c --arg node "$NODE" '.[] | select(.node == null or .node == "*" or .node == $node)' "${TARGETS_CONFIG}" | while read -r t; do
+      _NAME="$(echo "$t" | jq -r '.name')"
+      _TYPE="$(echo "$t" | jq -r '.type')"
+      _DIR="${BACKUP_BASE}/${_NAME}"
+      if [ -d "$_DIR" ]; then
+        _COUNT="$(find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) | wc -l)"
+        _LATEST="$(find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) -exec ls -1t {} + 2>/dev/null | head -n 1)"
+        if [ -n "$_LATEST" ]; then
+          _SIZE="$(ls -lh "$_LATEST" | awk '{print $5}')"
+          printf "  * %-20s [%s] - %d snapshot(s), Latest: %s (%s)\n" "$_NAME" "$_TYPE" "$_COUNT" "$(basename "$_LATEST")" "$_SIZE"
+        else
+          printf "  * %-20s [%s] - 0 snapshots found\n" "$_NAME" "$_TYPE"
+        fi
+      else
+        printf "  * %-20s [%s] - No directory at %s\n" "$_NAME" "$_TYPE" "$_DIR"
+      fi
+    done
+  fi
+}
+
+restore_target() {
+  _TARGET="$1"
+  _REQ_FILE="$2"
+  _CONFIRM_FLAG="$3"
+
+  _CONFIG="$(jq -c --arg name "$_TARGET" '.[] | select(.name == $name)' "${TARGETS_CONFIG}" | head -n 1)"
+  if [ -z "$_CONFIG" ]; then
+    log "ERROR: Target '${_TARGET}' not found in ${TARGETS_CONFIG}."
+    exit 1
+  fi
+
+  _TYPE="$(echo "$_CONFIG" | jq -r '.type')"
+  _DIR="${BACKUP_BASE}/${_TARGET}"
+
+  if [ ! -d "$_DIR" ]; then
+    log "ERROR: Backup directory '${_DIR}' does not exist."
+    exit 1
+  fi
+
+  _FILE=""
+  if [ -n "$_REQ_FILE" ] && [ "$_REQ_FILE" != "latest" ] && [ "$_REQ_FILE" != "--confirm" ]; then
+    if [ -f "$_REQ_FILE" ]; then
+      _FILE="$_REQ_FILE"
+    elif [ -f "${_DIR}/${_REQ_FILE}" ]; then
+      _FILE="${_DIR}/${_REQ_FILE}"
+    else
+      log "ERROR: Specified backup file '${_REQ_FILE}' not found."
+      exit 1
+    fi
+  else
+    _FILE="$(find "$_DIR" -type f \( -name "*.dump" -o -name "*.sqlite" -o -name "*.tar.gz" \) -exec ls -1t {} + 2>/dev/null | head -n 1)"
+    if [ -z "$_FILE" ]; then
+      log "ERROR: No snapshot files found in '${_DIR}'."
+      exit 1
+    fi
+  fi
+
+  if [ "$_REQ_FILE" = "--confirm" ] || [ "$_CONFIRM_FLAG" = "--confirm" ]; then
+    _PROCEED="yes"
+  else
+    echo "======================================================================"
+    echo "RESTORE WARNING: Target '${_TARGET}'"
+    echo "Using backup:    ${_FILE}"
+    echo "Target Type:     ${_TYPE}"
+    echo "======================================================================"
+    echo "This operation will overwrite current data for target '${_TARGET}'."
+    printf "Are you sure you want to proceed? (yes/no): "
+    read -r _PROCEED
+  fi
+
+  if [ "$_PROCEED" != "yes" ]; then
+    log "Restore cancelled by user."
+    exit 0
+  fi
+
+  log "Starting restore for '${_TARGET}' from ${_FILE}..."
+
+  if [ "$_TYPE" = "postgres" ]; then
+    _HOST="$(echo "$_CONFIG" | jq -r '.host // "localhost"')"
+    _PORT="$(echo "$_CONFIG" | jq -r '.port // 5432')"
+    _USER="$(echo "$_CONFIG" | jq -r '.user // "postgres"')"
+    _DB="$(echo "$_CONFIG" | jq -r '.database // "postgres"')"
+    _PASS_FILE="$(echo "$_CONFIG" | jq -r '.password_file // empty')"
+    _PASS_ENV="$(echo "$_CONFIG" | jq -r '.password_env // empty')"
+    _PASS_DEF="$(echo "$_CONFIG" | jq -r '.password_default // empty')"
+
+    _PASS=""
+    if [ -n "$_PASS_FILE" ] && [ -f "$_PASS_FILE" ]; then
+      _PASS="$(cat "$_PASS_FILE")"
+    elif [ -n "$_PASS_ENV" ]; then
+      _PASS="$(eval "echo \"\${$_PASS_ENV:-}\"")"
+    fi
+    if [ -z "$_PASS" ] && [ -n "$_PASS_DEF" ]; then
+      _PASS="$_PASS_DEF"
+    fi
+
+    if ! PGPASSWORD="${_PASS}" pg_isready -h "${_HOST}" -p "${_PORT}" -U "${_USER}" -d "${_DB}" >/dev/null 2>&1; then
+      log "ERROR: Target '${_TARGET}' is unreachable on ${_HOST}:${_PORT}."
+      exit 1
+    fi
+
+    log "Executing pg_restore on ${_HOST}:${_PORT}/${_DB}..."
+    PGPASSWORD="${_PASS}" pg_restore -h "${_HOST}" -p "${_PORT}" -U "${_USER}" -d "${_DB}" --clean --if-exists "${_FILE}" || true
+    log "SUCCESS: PostgreSQL restore complete for '${_TARGET}'."
+
+  elif [ "$_TYPE" = "sqlite" ]; then
+    _SOURCE="$(echo "$_CONFIG" | jq -r '.source')"
+    log "Restoring SQLite database to ${_SOURCE}..."
+
+    mkdir -p "$(dirname "${_SOURCE}")"
+    if [ -f "${_SOURCE}" ]; then
+      cp -f "${_SOURCE}" "${_SOURCE}.pre_restore_bak"
+      log "Created safety snapshot at ${_SOURCE}.pre_restore_bak"
+    fi
+
+    if sqlite3 "${_SOURCE}" ".restore '${_FILE}'"; then
+      _CHECK="$(sqlite3 "${_SOURCE}" "PRAGMA integrity_check;" 2>&1 || true)"
+      if [ "$_CHECK" = "ok" ]; then
+        log "Integrity check passed (ok)."
+        rm -f "${_SOURCE}.pre_restore_bak"
+        log "SUCCESS: SQLite restore complete for '${_TARGET}'."
+      else
+        log "ERROR: Integrity check failed: ${_CHECK}. Rolling back..."
+        if [ -f "${_SOURCE}.pre_restore_bak" ]; then
+          mv -f "${_SOURCE}.pre_restore_bak" "${_SOURCE}"
+        fi
+        exit 1
+      fi
+    else
+      log "ERROR: sqlite3 restore failed. Rolling back..."
+      if [ -f "${_SOURCE}.pre_restore_bak" ]; then
+        mv -f "${_SOURCE}.pre_restore_bak" "${_SOURCE}"
+      fi
+      exit 1
+    fi
+
+  elif [ "$_TYPE" = "archive" ]; then
+    _SOURCE_DIR="$(echo "$_CONFIG" | jq -r '.source_dir')"
+    log "Extracting archive to ${_SOURCE_DIR}..."
+    mkdir -p "${_SOURCE_DIR}"
+    tar -xzf "${_FILE}" -C "${_SOURCE_DIR}"
+    log "SUCCESS: Configuration archive extracted to ${_SOURCE_DIR}."
+
+  else
+    log "ERROR: Unsupported target type '${_TYPE}'."
+    exit 1
+  fi
+}
+
+case "$1" in
+  list|ls)
+    list_backups "$2"
+    ;;
+  restore)
+    if [ -z "$2" ]; then
+      echo "Usage: $0 restore <target> [snapshot_file|latest] [--confirm]"
+      exit 1
+    fi
+    restore_target "$2" "$3" "$4"
+    ;;
+  *)
+    echo "Charon Database & Config Restore Utility"
+    echo ""
+    echo "Usage:"
+    echo "  $0 list                     List all targets and available snapshots"
+    echo "  $0 list <target>            List snapshots for a specific target"
+    echo "  $0 restore <target>         Restore latest snapshot for target (prompts confirmation)"
+    echo "  $0 restore <target> <file>  Restore specific snapshot file"
+    echo "  $0 restore <target> latest --confirm   Restore non-interactively"
+    echo ""
+    exit 1
+    ;;
+esac

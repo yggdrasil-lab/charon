@@ -9,9 +9,10 @@ RUN apk add --no-cache \
 
 COPY targets.json /etc/charon-dumper/targets.json
 COPY dumper.sh /usr/local/bin/dumper.sh
+COPY restore.sh /usr/local/bin/restore.sh
 COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /usr/local/bin/dumper.sh /entrypoint.sh && \
+RUN chmod +x /usr/local/bin/dumper.sh /usr/local/bin/restore.sh /entrypoint.sh && \
     mkdir -p /backups /var/log /etc/charon-dumper
 
 ENTRYPOINT ["/entrypoint.sh"]
