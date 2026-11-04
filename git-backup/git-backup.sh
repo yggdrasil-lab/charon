@@ -47,13 +47,13 @@ chmod 700 "${SSH_DIR}"
 chmod 600 "${SSH_DIR}"/* 2>/dev/null || true
 
 # Add github.com to known_hosts
-if ! ssh-keygen -F github.com -f "${SSH_DIR}/known_hosts" &> /dev/null; then
+if ! ssh-keygen -F github.com -f "${SSH_DIR}/known_hosts" >/dev/null 2>&1; then
   echo "Adding github.com to known_hosts..."
   ssh-keyscan github.com >> "${SSH_DIR}/known_hosts" 2>/dev/null
 fi
 chmod 600 "${SSH_DIR}/known_hosts" 2>/dev/null || true
 
-export GIT_SSH_COMMAND="ssh -i ${SSH_DIR}/id_rsa -o UserKnownHostsFile=${SSH_DIR}/known_hosts -o StrictHostKeyChecking=accept-new"
+export GIT_SSH_COMMAND="ssh -i ${SSH_DIR}/id_rsa -o UserKnownHostsFile=${SSH_DIR}/known_hosts -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
 
 # Initialize git repository if it doesn't exist
 if [ ! -d ".git" ]; then
@@ -106,43 +106,94 @@ while [ "$STOP_REQUESTED" = false ]; do
   # 1. Pull latest changes FIRST.
   echo "Pulling latest changes from remote..."
   if ! git pull --ff-only origin main; then
-    echo "Standard pull failed (not fast-forward). Attempting to resolve by prioritizing local state..."
-    
-    # User instruction: "Prioritize local changes in conflict scenarios"
-    # Strategy: Commit local changes, then rebase our commits on top of origin, favoring 'theirs' (our local) in conflicts.
-    
-    git add .
-    # Allow empty commits in case the diff is trivial but git was confused
-    git commit --allow-empty -m "Pre-rebase save: $(date)"
-    
-    # Check for stale rebase state before attempting pull
-    if [ -d ".git/rebase-merge" ]; then
-        echo "Found stale rebase state. Aborting..."
-        git rebase --abort || rm -rf .git/rebase-merge
+    echo "Standard pull failed. Checking remote reachability..."
+    if ! git fetch origin main; then
+      echo "Remote is unreachable or fetch failed (network or SSH error). Skipping backup cycle..."
+      touch /tmp/charon_git_heartbeat
+      echo "Backup check skipped. Sleeping for 1 hour..."
+      sleep 3600 &
+      SLEEP_PID=$!
+      wait "$SLEEP_PID"
+      SLEEP_PID=""
+      continue
     fi
 
-    # Rebase using 'theirs' strategy. 
-    # In a rebase, 'theirs' refers to the current branch commits being replayed (our local content).
-    if ! git pull --rebase -X theirs origin main; then
-       echo "Rebase failed with strategy options. Attempting aggressive local resolution..."
-       
-       # Attempt to checkout 'theirs' (our local version) for all conflicts
-       # This resolves "Modified/Delete" conflicts by keeping the local modification
-       git checkout --theirs . >/dev/null 2>&1
-       git add .
-       
-       # Try to continue the rebase
-       # We use 'true' as the editor to close any commit message prompts immediately
-       if GIT_EDITOR=true git rebase --continue; then
-           echo "Rebase conflict resolved favoring local state."
-       else
-           echo "Critical: Aggressive resolution failed. Aborting."
-           git rebase --abort || rm -rf .git/rebase-merge
-           echo "Aborted rebase. Backup cycle skipped."
-           notify_iris "git-backup" "error" "Rebase Conflict Resolution Failed" "Hourly backup cycle skipped because git rebase conflict could not be automatically resolved."
-       fi
+    # Remote is reachable. Test if fast-forward is possible now that fetch succeeded.
+    if git merge --ff-only origin/main >/dev/null 2>&1; then
+      echo "Fast-forward merge succeeded after fetch."
     else
-       echo "Rebase successful. Local state preserved."
+      echo "Remote is reachable but branch diverged. Attempting to resolve by prioritizing local state..."
+      
+      # User instruction: Prioritize local changes in conflict scenarios
+      # Strategy: Commit local changes, then rebase our commits on top of origin, favoring 'theirs' (our local) in conflicts.
+      
+      git add .
+      # Allow empty commits in case the diff is trivial but git was confused
+      git commit --allow-empty -m "Pre-rebase save: $(date)"
+      PRE_REBASE_SAVE=true
+      
+      # Check for stale rebase state before attempting pull
+      if [ -d ".git/rebase-merge" ]; then
+          echo "Found stale rebase state. Aborting..."
+          git rebase --abort || rm -rf .git/rebase-merge
+      fi
+
+      # Rebase using 'theirs' strategy.
+      # In a rebase, 'theirs' refers to the current branch commits being replayed (our local content).
+      if ! git pull --rebase -X theirs origin main; then
+         echo "Rebase failed with strategy options. Attempting aggressive local resolution..."
+         
+         # Attempt to checkout 'theirs' (our local version) for all conflicts
+         # This resolves Modified/Delete conflicts by keeping the local modification
+         git checkout --theirs . >/dev/null 2>&1 || true
+         
+         # Resolve submodule (160000) conflicts by staging local working tree pointers.
+         # git rebase -X theirs and git checkout --theirs do not resolve gitlink mode 160000 conflicts.
+         unmerged_submodules=$(git ls-files -u 2>/dev/null | grep '^160000' | cut -f2 | sort -u)
+         if [ -n "$unmerged_submodules" ]; then
+             echo "Resolving submodule conflicts favoring local working tree:"
+             echo "$unmerged_submodules" | while IFS= read -r sub; do
+                 if [ -n "$sub" ]; then
+                     echo "  Staging local pointer for submodule: $sub"
+                     git add "$sub" >/dev/null 2>&1 || true
+                 fi
+             done
+         fi
+         git add -u >/dev/null 2>&1 || true
+         git add . >/dev/null 2>&1 || true
+         
+         # Try to continue the rebase
+         # We use 'true' as the editor to close any commit message prompts immediately
+         if GIT_EDITOR=true git rebase --continue; then
+             echo "Rebase conflict resolved favoring local state."
+             PRE_REBASE_SAVE=false
+         else
+             echo "Critical: Aggressive resolution failed. Aborting."
+             git rebase --abort || rm -rf .git/rebase-merge
+             if [ "$PRE_REBASE_SAVE" = true ]; then
+                 LAST_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+                 case "$LAST_MSG" in
+                     "Pre-rebase save:"*)
+                         echo "Rolling back temporary pre-rebase save commit..."
+                         git reset HEAD~1
+                         ;;
+                 esac
+                 PRE_REBASE_SAVE=false
+             fi
+             echo "Aborted rebase. Backup cycle skipped."
+             notify_iris "git-backup" "error" "Rebase Conflict Resolution Failed" "Hourly backup cycle skipped because git rebase conflict could not be automatically resolved."
+             touch /tmp/charon_git_heartbeat
+             echo "Sleeping for 1 hour..."
+             sleep 3600 &
+             SLEEP_PID=$!
+             wait "$SLEEP_PID"
+             SLEEP_PID=""
+             continue
+         fi
+      else
+         echo "Rebase successful. Local state preserved."
+         PRE_REBASE_SAVE=false
+      fi
     fi
   fi
 
@@ -170,36 +221,43 @@ while [ "$STOP_REQUESTED" = false ]; do
   # We use 'git push' which will handle the "Everything up-to-date" case gracefully
   echo "Ensuring remote is in sync..."
   if ! git push origin main; then
-      echo "Push failed. Remote might have diverged (e.g., force push). Attempting final rebase..."
-      
-      if git pull --rebase origin main; then
-          if ! git push origin main; then
-              echo "Final push failed."
-              notify_iris "git-backup" "error" "Git Push Failed" "Failed to push hourly vault commits to remote after rebase."
-          fi
+      echo "Push failed. Checking remote reachability..."
+      if ! git fetch origin main; then
+          echo "Remote is unreachable or fetch failed (network or SSH error). Skipping push for this backup cycle."
       else
-          echo "Rebase failed. Prioritizing LOCAL state as source of truth."
-          # If we cannot rebase, it means the histories are hopelessly diverged.
-          # Strategy: Soft reset to remote HEAD, keeping all local files as "changes", then commit and push.
-          echo "Performing soft reset to align with remote..."
+          echo "Remote is reachable. Branch might have diverged (e.g. force push). Attempting final rebase..."
           
-          # 1. Fetch latest remote
-          git fetch origin main
-          
-          # 2. Soft reset: Move HEAD to remote, but keep working directory (local files) intact
-          git reset --soft origin/main
-          
-          # 3. Stage all local files (this effectively "overwrites" the remote state with local state in a new commit)
-          git add .
-          
-          # 4. Commit as a fresh backup state
-          git commit -m "Consolidated Backup: Resync after divergence $(date)"
-          
-          # 5. Push (force shouldn't be needed now as we are legally ahead, but we use it just in case)
-          echo "Pushing consolidated state..."
-          if ! (git push origin main || git push --force origin main); then
-              echo "Pushing consolidated state failed."
-              notify_iris "git-backup" "error" "Consolidated Git Push Failed" "Failed to push consolidated backup state even with force push."
+          if git pull --rebase origin main; then
+              if ! git push origin main; then
+                  echo "Final push failed."
+                  notify_iris "git-backup" "error" "Git Push Failed" "Failed to push hourly vault commits to remote after rebase."
+              fi
+          else
+              echo "Rebase failed. Aborting rebase before resync..."
+              git rebase --abort >/dev/null 2>&1 || rm -rf .git/rebase-merge
+              echo "Prioritizing LOCAL state as source of truth."
+              # If we cannot rebase, it means the histories are hopelessly diverged.
+              # Strategy: Soft reset to remote HEAD, keeping all local files as "changes", then commit and push.
+              echo "Performing soft reset to align with remote..."
+              
+              # 1. Fetch latest remote
+              git fetch origin main
+              
+              # 2. Soft reset: Move HEAD to remote, but keep working directory (local files) intact
+              git reset --soft origin/main
+              
+              # 3. Stage all local files (this effectively "overwrites" the remote state with local state in a new commit)
+              git add .
+              
+              # 4. Commit as a fresh backup state
+              git commit -m "Consolidated Backup: Resync after divergence $(date)"
+              
+              # 5. Push (force shouldn't be needed now as we are legally ahead, but we use it just in case)
+              echo "Pushing consolidated state..."
+              if ! (git push origin main || git push --force origin main); then
+                  echo "Pushing consolidated state failed."
+                  notify_iris "git-backup" "error" "Consolidated Git Push Failed" "Failed to push consolidated backup state even with force push."
+              fi
           fi
       fi
   else
