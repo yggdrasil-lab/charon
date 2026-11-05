@@ -103,6 +103,10 @@ trap 'shutdown_handler' SIGTERM SIGINT
 while [ "$STOP_REQUESTED" = false ]; do
   echo "[$(date)] --- Starting hourly backup check ---"
   
+  # Ensure remote URL and shared repository settings remain enforced against host mutation
+  git remote set-url origin "${GIT_REPO_URL}"
+  git config core.sharedRepository all
+  
   # 1. Pull latest changes FIRST.
   echo "Pulling latest changes from remote..."
   if ! git pull --ff-only origin main; then
