@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 # Sync interval in seconds (default 300 — 5 min, down from 30s to avoid Google Drive API rate limits)
 SYNC_INTERVAL="${SYNC_INTERVAL:-300}"
 
@@ -18,6 +19,7 @@ notify_iris() {
 # Graceful Shutdown Handling
 STOP_REQUESTED=false
 SYNC_IN_PROGRESS=false
+SLEEP_PID=""
 shutdown_handler() {
     if [ "$SYNC_IN_PROGRESS" = true ]; then
         log "SIGTERM/SIGINT received. Sync in progress, will complete before shutdown..."

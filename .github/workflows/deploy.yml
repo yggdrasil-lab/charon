@@ -13,10 +13,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate Required Configuration
+        env:
+          DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
+          EIR_DB_PASSWORD: ${{ secrets.EIR_DB_PASSWORD }}
+          KRATOS_DB_PASSWORD: ${{ secrets.KRATOS_DB_PASSWORD }}
+          GIT_USER_EMAIL: ${{ vars.GIT_USER_EMAIL }}
+          GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
+        run: |
+          MISSING=""
+          [ -z "$DOMAIN_NAME" ] && MISSING="$MISSING DOMAIN_NAME"
+          [ -z "$EIR_DB_PASSWORD" ] && MISSING="$MISSING EIR_DB_PASSWORD"
+          [ -z "$KRATOS_DB_PASSWORD" ] && MISSING="$MISSING KRATOS_DB_PASSWORD"
+          [ -z "$GIT_USER_EMAIL" ] && MISSING="$MISSING GIT_USER_EMAIL"
+          [ -z "$GIT_USER_NAME" ] && MISSING="$MISSING GIT_USER_NAME"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Deployment halted: missing required configuration:$MISSING" >&2
+            exit 1
+          fi
+
       - name: Log in to Registry
         uses: docker/login-action@v3
         with:
-          registry: registry.tienzo.net
+          registry: ${{ vars.REGISTRY_URL || format('registry.{0}', vars.DOMAIN_NAME) }}
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_RAW_PASSWORD }}
 
@@ -40,12 +59,12 @@ jobs:
           GDRIVE_VAULT_PATH: ${{ vars.GDRIVE_VAULT_PATH }}
           GDRIVE_BACKUP_PATH: ${{ vars.GDRIVE_BACKUP_PATH }}
           # Database Passwords
-          EIR_DB_PASSWORD: ${{ vars.EIR_DB_PASSWORD || 'eir' }}
-          KRATOS_DB_PASSWORD: ${{ vars.KRATOS_DB_PASSWORD || 'kratos' }}
+          EIR_DB_PASSWORD: ${{ secrets.EIR_DB_PASSWORD }}
+          KRATOS_DB_PASSWORD: ${{ secrets.KRATOS_DB_PASSWORD }}
           # Git Config
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
-          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL || 'charon@tienzo.net' }}
-          GIT_USER_NAME: ${{ vars.GIT_USER_NAME || 'Charon' }}
+          GIT_USER_EMAIL: ${{ vars.GIT_USER_EMAIL }}
+          GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
           ENV: ${{ vars.ENV }}
           REGISTRY_PREFIX: ${{ vars.REGISTRY_PREFIX }}
           # Secret Names

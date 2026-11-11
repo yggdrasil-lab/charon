@@ -67,7 +67,7 @@ services:
         reservations:
           memory: 64M
     healthcheck:
-      test: ["CMD", "pgrep", "crond"]
+      test: ["CMD-SHELL", "pgrep crond && [ -n \"$$(find /tmp -name 'charon_*_heartbeat' -mmin -1500 2>/dev/null)\" ] || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -110,7 +110,7 @@ services:
         reservations:
           memory: 64M
     healthcheck:
-      test: ["CMD", "pgrep", "crond"]
+      test: ["CMD-SHELL", "pgrep crond && [ -n \"$$(find /tmp -name 'charon_*_heartbeat' -mmin -1500 2>/dev/null)\" ] || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -155,7 +155,7 @@ services:
         reservations:
           memory: 64M
     healthcheck:
-      test: ["CMD", "pgrep", "crond"]
+      test: ["CMD-SHELL", "pgrep crond && [ -n \"$$(find /tmp -name 'charon_*_heartbeat' -mmin -1500 2>/dev/null)\" ] || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
