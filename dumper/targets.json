@@ -7,7 +7,6 @@
     "port": 5432,
     "user": "eir",
     "password_env": "EIR_DB_PASSWORD",
-    "password_default": "eir",
     "database": "eir"
   },
   {
@@ -18,7 +17,6 @@
     "port": 5432,
     "user": "kratos",
     "password_env": "KRATOS_DB_PASSWORD",
-    "password_default": "kratos",
     "database": "kratos"
   },
   {

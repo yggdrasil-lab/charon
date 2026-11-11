@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -euo pipefail
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] $1"
@@ -15,7 +15,7 @@ if [ ! -f "${TARGETS_CONFIG}" ]; then
 fi
 
 list_backups() {
-  _TARGET="$1"
+  _TARGET="${1:-}"
   if [ -n "$_TARGET" ]; then
     _CONFIG="$(jq -c --arg name "$_TARGET" '.[] | select(.name == $name)' "${TARGETS_CONFIG}" | head -n 1)"
     _TYPE=""
@@ -64,9 +64,9 @@ list_backups() {
 }
 
 restore_target() {
-  _TARGET="$1"
-  _REQ_FILE="$2"
-  _CONFIRM_FLAG="$3"
+  _TARGET="${1:-}"
+  _REQ_FILE="${2:-}"
+  _CONFIRM_FLAG="${3:-}"
 
   _CONFIG="$(jq -c --arg name "$_TARGET" '.[] | select(.name == $name)' "${TARGETS_CONFIG}" | head -n 1)"
   if [ -z "$_CONFIG" ]; then
@@ -152,7 +152,7 @@ restore_target() {
     fi
 
     log "Executing pg_restore on ${_HOST}:${_PORT}/${_DB}..."
-    PGPASSWORD="${_PASS}" pg_restore -h "${_HOST}" -p "${_PORT}" -U "${_USER}" -d "${_DB}" --clean --if-exists "${_FILE}" || true
+    PGPASSWORD="${_PASS}" pg_restore -h "${_HOST}" -p "${_PORT}" -U "${_USER}" -d "${_DB}" --clean --if-exists "${_FILE}"
     log "SUCCESS: PostgreSQL restore complete for '${_TARGET}'."
 
   elif [ "$_TYPE" = "sqlite" ]; then
@@ -278,7 +278,7 @@ verify_single_target() {
 }
 
 verify_backups() {
-  _TARGET="$1"
+  _TARGET="${1:-}"
   if [ -n "$_TARGET" ] && [ "$_TARGET" != "--all" ]; then
     echo "=== Verifying Backup for Target '${_TARGET}' on node '${NODE}' ==="
     verify_single_target "$_TARGET"
@@ -303,19 +303,19 @@ verify_backups() {
   fi
 }
 
-case "$1" in
+case "${1:-}" in
   list|ls)
-    list_backups "$2"
+    list_backups "${2:-}"
     ;;
   verify|check)
-    verify_backups "$2"
+    verify_backups "${2:-}"
     ;;
   restore)
-    if [ -z "$2" ]; then
+    if [ -z "${2:-}" ]; then
       echo "Usage: $0 restore <target> [snapshot_file|latest] [--confirm]"
       exit 1
     fi
-    restore_target "$2" "$3" "$4"
+    restore_target "$2" "${3:-}" "${4:-}"
     ;;
   *)
     echo "Charon Database & Config Restore Utility"
