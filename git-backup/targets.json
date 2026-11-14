@@ -1,0 +1,22 @@
+[
+  {
+    "name": "vault",
+    "description": "Obsidian Second Brain Vault",
+    "path": "/git/vault",
+    "repo_url_env": "GIT_REPO_URL",
+    "branch": "main",
+    "commit_prefix": "Hourly Vault Backup: ",
+    "resolve_submodules": true,
+    "clean_ignored": true
+  },
+  {
+    "name": "odin",
+    "description": "Hermes Agent and Skills",
+    "path": "/git/odin",
+    "repo_url_env": "ODIN_GIT_REPO_URL",
+    "branch": "main",
+    "commit_prefix": "Hermes Backup: ",
+    "resolve_submodules": false,
+    "clean_ignored": true
+  }
+]

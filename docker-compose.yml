@@ -193,21 +193,21 @@ services:
           memory: 512M
         reservations:
           memory: 64M
-    working_dir: /git
+    working_dir: /tmp
     healthcheck:
-      test: ["CMD-SHELL", "test -f .git_ready && (! test -f /tmp/charon_git_heartbeat || [ $$(($$(date +%s) - $$(stat -c %Y /tmp/charon_git_heartbeat))) -lt 7200 ]) || exit 1"]
+      test: ["CMD-SHELL", "test -f /tmp/.git_ready && (! test -f /tmp/charon_git_heartbeat || [ $$(($$(date +%s) - $$(stat -c %Y /tmp/charon_git_heartbeat))) -lt 7200 ]) || exit 1"]
       interval: 60s
       timeout: 10s
       retries: 3
       start_period: 30s
     entrypoint: /bin/sh
     command: -c '
-        git config --global safe.directory /git;
-        echo "Starting backup script...";
+        echo "Starting centralized git backup...";
         /usr/local/bin/git-backup.sh;
       '
     environment:
       - GIT_REPO_URL=${GIT_REPO_URL}
+      - ODIN_GIT_REPO_URL=${ODIN_GIT_REPO_URL}
       - GIT_USER_EMAIL=${GIT_USER_EMAIL}
       - GIT_USER_NAME=${GIT_USER_NAME}
       - ENV=${ENV}
@@ -216,7 +216,8 @@ services:
       - source: charon_ssh_key
         target: charon_ssh_key
     volumes:
-      - ${OBSIDIAN_VAULT_PATH}:/git
+      - ${OBSIDIAN_VAULT_PATH}:/git/vault
+      - ${ODIN_PATH}:/git/odin
     networks:
       - aether-net
       - internal

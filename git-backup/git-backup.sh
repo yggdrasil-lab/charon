@@ -8,25 +8,35 @@ if ! getent passwd "$(id -u)" >/dev/null 2>&1; then
     echo "charon:x:$(id -u):$(id -g):charon:${HOME:-/tmp}:/bin/sh" >> /etc/passwd 2>/dev/null || true
 fi
 
-echo "Initializing git backup script..."
+echo "Initializing centralized git backup script..."
+
+TARGETS_CONFIG="${TARGETS_CONFIG:-/etc/charon-git/targets.json}"
 
 notify_iris() {
-    _SERVICE="${1:-git-backup}"; _SEVERITY="${2:-error}"; _TITLE="${3:-Alert}"; _DETAILS="${4:-No details}"
+    _SERVICE="${1:-git-backup}"
+    _SEVERITY="${2:-error}"
+    _TITLE="${3:-Alert}"
+    _DETAILS="${4:-No details}"
     curl -s --max-time 5 --connect-timeout 3 -X POST http://iris:8000/notify/discord \
         -H "Content-Type: application/json" \
-        -d "{\"service\":\"git-backup\",\"bot_name\":\"Charon\",\"severity\":\"${_SEVERITY}\",\"title\":\"${_TITLE}\",\"details\":\"${_DETAILS}\"}" >/dev/null 2>&1 || true
+        -d "{\"service\":\"${_SERVICE}\",\"bot_name\":\"Charon\",\"severity\":\"${_SEVERITY}\",\"title\":\"${_TITLE}\",\"details\":\"${_DETAILS}\"}" >/dev/null 2>&1 || true
 }
 
-# Validate that necessary environment variables are set
-if [ -z "$GIT_USER_EMAIL" ] || [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_REPO_URL" ]; then
-  echo "Error: One or more required environment variables are not set."
-  echo "Please set GIT_USER_EMAIL, GIT_USER_NAME, and GIT_REPO_URL."
-  exit 1
+# Validate that shared git author environment variables are set
+if [ -z "$GIT_USER_EMAIL" ] || [ -z "$GIT_USER_NAME" ]; then
+    echo "Error: GIT_USER_EMAIL and GIT_USER_NAME must be set."
+    exit 1
 fi
 
-# Configure Git
+if [ ! -f "${TARGETS_CONFIG}" ]; then
+    echo "Error: Targets configuration file '${TARGETS_CONFIG}' not found."
+    exit 1
+fi
+
+# Configure Git Author Identity
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
+git config --global --add safe.directory "*"
 
 # Setup SSH keys from Docker Secret
 echo "Setting up SSH keys..."
@@ -37,61 +47,27 @@ if [ -f "/run/secrets/charon_ssh_key" ]; then
     tr -d '\r' < /run/secrets/charon_ssh_key > "${SSH_DIR}/id_rsa"
     # Ensure there is a trailing newline
     echo "" >> "${SSH_DIR}/id_rsa"
-    
-    echo "Debug Key Info:"
-    echo "Line count: $(wc -l < "${SSH_DIR}/id_rsa")"
-    echo "First line: $(head -n 1 "${SSH_DIR}/id_rsa")"
-    echo "Last line: $(tail -n 2 "${SSH_DIR}/id_rsa" | head -n 1)" # Print the line before the forced newline
 fi
 chmod 700 "${SSH_DIR}"
 chmod 600 "${SSH_DIR}"/* 2>/dev/null || true
 
 # Add github.com to known_hosts
 if ! ssh-keygen -F github.com -f "${SSH_DIR}/known_hosts" >/dev/null 2>&1; then
-  echo "Adding github.com to known_hosts..."
-  ssh-keyscan github.com >> "${SSH_DIR}/known_hosts" 2>/dev/null
+    echo "Adding github.com to known_hosts..."
+    ssh-keyscan github.com >> "${SSH_DIR}/known_hosts" 2>/dev/null
 fi
 chmod 600 "${SSH_DIR}/known_hosts" 2>/dev/null || true
 
 export GIT_SSH_COMMAND="ssh -i ${SSH_DIR}/id_rsa -o UserKnownHostsFile=${SSH_DIR}/known_hosts -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
 
-# Initialize git repository if it doesn't exist
-if [ ! -d ".git" ]; then
-  echo "No .git directory found. Connecting to existing repository..."
-  git init
-  git remote add origin "${GIT_REPO_URL}"
-fi
-
-# Always ensure the remote URL and repository sharing are up-to-date
-git remote set-url origin "${GIT_REPO_URL}"
-git config core.sharedRepository all
-
-echo "Fetching latest changes from remote..."
-git fetch origin
-
-# Ensure local branch is main
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-if [ "$CURRENT_BRANCH" != "main" ]; then
-  echo "Current branch is '$CURRENT_BRANCH'. Switching to 'main'..."
-  if ! git show-ref --verify --quiet refs/heads/main; then
-    git checkout -b main origin/main 2>/dev/null || git checkout -b main
-  else
-    git checkout main
-  fi
-fi
-
-echo "Pulling latest changes..."
-git pull origin main || echo "Initial pull failed."
-
 # Signal readiness for healthcheck
-touch .git_ready
+touch /tmp/.git_ready
 
 # Graceful Shutdown Handling
 STOP_REQUESTED=false
 shutdown_handler() {
     echo "[$(date)] SIGTERM/SIGINT received. Shutting down gracefully..."
     STOP_REQUESTED=true
-    # If we are sleeping (PID of sleep command), kill it to exit immediately
     if [ -n "$SLEEP_PID" ]; then
         kill "$SLEEP_PID" 2>/dev/null
     fi
@@ -99,183 +75,222 @@ shutdown_handler() {
 
 trap 'shutdown_handler' SIGTERM SIGINT
 
+backup_target() {
+    _NAME="$1"
+    _PATH="$2"
+    _REPO_URL="$3"
+    _BRANCH="${4:-main}"
+    _PREFIX="$5"
+    _RESOLVE_SUBMODULES="${6:-false}"
+    _CLEAN_IGNORED="${7:-false}"
+
+    echo "[$(date)] Processing target '${_NAME}' at '${_PATH}'..."
+
+    if [ ! -d "${_PATH}" ]; then
+        echo "Error: Target directory '${_PATH}' not found for '${_NAME}'."
+        return 1
+    fi
+
+    if [ -z "${_REPO_URL}" ]; then
+        echo "Error: Remote repository URL is empty for '${_NAME}'."
+        return 1
+    fi
+
+    cd "${_PATH}"
+
+    # Initialize repository if not already present
+    if [ ! -d ".git" ]; then
+        echo "No .git directory found in ${_PATH}. Initializing repository..."
+        git init
+        git remote add origin "${_REPO_URL}"
+    fi
+
+    # Ensure remote URL and shared permissions remain configured
+    git remote set-url origin "${_REPO_URL}"
+    git config core.sharedRepository all
+
+    # Ensure local branch matches requested branch
+    _CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+    if [ "${_CURRENT_BRANCH}" != "${_BRANCH}" ]; then
+        echo "Current branch is '${_CURRENT_BRANCH}'. Switching to '${_BRANCH}'..."
+        if ! git show-ref --verify --quiet "refs/heads/${_BRANCH}"; then
+            git checkout -b "${_BRANCH}" "origin/${_BRANCH}" 2>/dev/null || git checkout -b "${_BRANCH}"
+        else
+            git checkout "${_BRANCH}"
+        fi
+    fi
+
+    # 1. Pull latest changes
+    echo "Pulling latest changes for ${_NAME}..."
+    if ! git pull --ff-only origin "${_BRANCH}"; then
+        echo "Standard pull failed. Checking remote reachability..."
+        if ! git fetch origin "${_BRANCH}"; then
+            echo "Remote is unreachable or fetch failed for ${_NAME}."
+            return 1
+        fi
+
+        if git merge --ff-only "origin/${_BRANCH}" >/dev/null 2>&1; then
+            echo "Fast-forward merge succeeded after fetch for ${_NAME}."
+        else
+            echo "Branch diverged for ${_NAME}. Attempting rebase prioritizing local state..."
+            git add .
+            git commit --allow-empty -m "Pre-rebase save: $(date)"
+            _PRE_REBASE_SAVE=true
+
+            if [ -d ".git/rebase-merge" ]; then
+                git rebase --abort || rm -rf .git/rebase-merge
+            fi
+
+            if ! git pull --rebase -X theirs origin "${_BRANCH}"; then
+                echo "Rebase failed with strategy options. Attempting aggressive resolution..."
+                git checkout --theirs . >/dev/null 2>&1 || true
+
+                if [ "${_RESOLVE_SUBMODULES}" = "true" ]; then
+                    _UNMERGED_SUBMODULES=$(git ls-files -u 2>/dev/null | grep '^160000' | cut -f2 | sort -u)
+                    if [ -n "${_UNMERGED_SUBMODULES}" ]; then
+                        echo "Resolving submodule conflicts favoring local working tree:"
+                        echo "${_UNMERGED_SUBMODULES}" | while IFS= read -r sub; do
+                            if [ -n "$sub" ]; then
+                                echo "  Staging local pointer for submodule: $sub"
+                                git add "$sub" >/dev/null 2>&1 || true
+                            fi
+                        done
+                    fi
+                fi
+
+                git add -u >/dev/null 2>&1 || true
+                git add . >/dev/null 2>&1 || true
+
+                if GIT_EDITOR=true git rebase --continue; then
+                    echo "Rebase conflict resolved favoring local state for ${_NAME}."
+                    _PRE_REBASE_SAVE=false
+                else
+                    echo "Critical: Aggressive resolution failed for ${_NAME}. Aborting."
+                    git rebase --abort || rm -rf .git/rebase-merge
+                    if [ "${_PRE_REBASE_SAVE}" = "true" ]; then
+                        _LAST_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+                        case "${_LAST_MSG}" in
+                            "Pre-rebase save:"*)
+                                echo "Rolling back temporary pre-rebase save commit..."
+                                git reset HEAD~1
+                                ;;
+                        esac
+                        _PRE_REBASE_SAVE=false
+                    fi
+                    return 1
+                fi
+            else
+                echo "Rebase successful for ${_NAME}."
+                _PRE_REBASE_SAVE=false
+            fi
+        fi
+    fi
+
+    # 2. Untrack files covered by newly updated .gitignore patterns
+    if [ "${_CLEAN_IGNORED}" = "true" ] && [ -f ".gitignore" ]; then
+        _IGNORED_FILES=$(git ls-files --cached | git check-ignore --stdin --no-index 2>/dev/null || true)
+        if [ -n "${_IGNORED_FILES}" ]; then
+            echo "Cleaning up tracked files now covered by .gitignore in ${_NAME}:"
+            printf '%s\n' "${_IGNORED_FILES}" | sed 's/^/  /'
+            printf '%s\n' "${_IGNORED_FILES}" | xargs -r git rm --cached --
+        fi
+    fi
+
+    # 3. Stage changes
+    git add .
+
+    # 4. Commit if changes exist
+    if git diff --staged --quiet --ignore-submodules=dirty; then
+        echo "Working directory is clean for ${_NAME}. Proceeding to push..."
+    else
+        echo "Changes detected in ${_NAME}. Committing..."
+        _ENV_PREFIX=""
+        if [ -n "$ENV" ]; then
+            _ENV_PREFIX="[${ENV}] "
+        fi
+        git commit -m "${_ENV_PREFIX}${_PREFIX}$(date)"
+    fi
+
+    # 5. Push to remote
+    echo "Ensuring remote is in sync for ${_NAME}..."
+    if ! git push origin "${_BRANCH}"; then
+        echo "Push failed for ${_NAME}. Checking remote reachability..."
+        if ! git fetch origin "${_BRANCH}"; then
+            echo "Remote unreachable or fetch failed for ${_NAME}."
+            return 1
+        fi
+
+        echo "Attempting final rebase for ${_NAME}..."
+        if git pull --rebase origin "${_BRANCH}"; then
+            if ! git push origin "${_BRANCH}"; then
+                echo "Final push failed for ${_NAME}."
+                return 1
+            fi
+        else
+            echo "Rebase failed. Aborting rebase before resync for ${_NAME}..."
+            git rebase --abort >/dev/null 2>&1 || rm -rf .git/rebase-merge
+            echo "Performing soft reset to align with remote for ${_NAME}..."
+            git fetch origin "${_BRANCH}"
+            git reset --soft "origin/${_BRANCH}"
+            git add .
+            git commit -m "Consolidated Backup: Resync after divergence $(date)"
+            if ! (git push origin "${_BRANCH}" || git push --force origin "${_BRANCH}"); then
+                echo "Consolidated push failed for ${_NAME}."
+                return 1
+            fi
+        fi
+    fi
+
+    echo "Remote is in sync for ${_NAME}."
+    return 0
+}
+
 # Main backup loop
 while [ "$STOP_REQUESTED" = false ]; do
-  echo "[$(date)] --- Starting hourly backup check ---"
-  
-  # Ensure remote URL and shared repository settings remain enforced against host mutation
-  git remote set-url origin "${GIT_REPO_URL}"
-  git config core.sharedRepository all
-  
-  # 1. Pull latest changes FIRST.
-  echo "Pulling latest changes from remote..."
-  if ! git pull --ff-only origin main; then
-    echo "Standard pull failed. Checking remote reachability..."
-    if ! git fetch origin main; then
-      echo "Remote is unreachable or fetch failed (network or SSH error). Skipping backup cycle..."
-      touch /tmp/charon_git_heartbeat
-      echo "Backup check skipped. Sleeping for 1 hour..."
-      sleep 3600 &
-      SLEEP_PID=$!
-      wait "$SLEEP_PID"
-      SLEEP_PID=""
-      continue
-    fi
+    echo "[$(date)] --- Starting centralized git backup run ---"
 
-    # Remote is reachable. Test if fast-forward is possible now that fetch succeeded.
-    if git merge --ff-only origin/main >/dev/null 2>&1; then
-      echo "Fast-forward merge succeeded after fetch."
+    TOTAL_TARGETS=0
+    FAILED_TARGETS=0
+    FAILURES_DETAILS=""
+
+    # Read each target from targets.json
+    jq -c '.[]' "${TARGETS_CONFIG}" > /tmp/targets_to_run.jsonl
+
+    while IFS= read -r target_json; do
+        [ -z "$target_json" ] && continue
+        TOTAL_TARGETS=$((TOTAL_TARGETS + 1))
+
+        TARGET_NAME=$(echo "$target_json" | jq -r '.name')
+        TARGET_PATH=$(echo "$target_json" | jq -r '.path')
+        TARGET_REPO_ENV=$(echo "$target_json" | jq -r '.repo_url_env')
+        TARGET_BRANCH=$(echo "$target_json" | jq -r '.branch // "main"')
+        TARGET_PREFIX=$(echo "$target_json" | jq -r '.commit_prefix // "Backup: "')
+        TARGET_RESOLVE_SUB=$(echo "$target_json" | jq -r '.resolve_submodules // false')
+        TARGET_CLEAN_IGN=$(echo "$target_json" | jq -r '.clean_ignored // false')
+
+        # Dynamically resolve repository URL from environment variable
+        TARGET_REPO_URL=$(eval echo "\$$TARGET_REPO_ENV")
+
+        if ! backup_target "$TARGET_NAME" "$TARGET_PATH" "$TARGET_REPO_URL" "$TARGET_BRANCH" "$TARGET_PREFIX" "$TARGET_RESOLVE_SUB" "$TARGET_CLEAN_IGN"; then
+            FAILED_TARGETS=$((FAILED_TARGETS + 1))
+            FAILURES_DETAILS="${FAILURES_DETAILS}Target '${TARGET_NAME}' failed backup. "
+        fi
+    done < /tmp/targets_to_run.jsonl
+
+    if [ "$FAILED_TARGETS" -gt 0 ]; then
+        echo "[$(date)] Git backup completed with ${FAILED_TARGETS}/${TOTAL_TARGETS} failures."
+        notify_iris "git-backup" "error" "Git Backup Failed" "${FAILURES_DETAILS}"
     else
-      echo "Remote is reachable but branch diverged. Attempting to resolve by prioritizing local state..."
-      
-      # User instruction: Prioritize local changes in conflict scenarios
-      # Strategy: Commit local changes, then rebase our commits on top of origin, favoring 'theirs' (our local) in conflicts.
-      
-      git add .
-      # Allow empty commits in case the diff is trivial but git was confused
-      git commit --allow-empty -m "Pre-rebase save: $(date)"
-      PRE_REBASE_SAVE=true
-      
-      # Check for stale rebase state before attempting pull
-      if [ -d ".git/rebase-merge" ]; then
-          echo "Found stale rebase state. Aborting..."
-          git rebase --abort || rm -rf .git/rebase-merge
-      fi
-
-      # Rebase using 'theirs' strategy.
-      # In a rebase, 'theirs' refers to the current branch commits being replayed (our local content).
-      if ! git pull --rebase -X theirs origin main; then
-         echo "Rebase failed with strategy options. Attempting aggressive local resolution..."
-         
-         # Attempt to checkout 'theirs' (our local version) for all conflicts
-         # This resolves Modified/Delete conflicts by keeping the local modification
-         git checkout --theirs . >/dev/null 2>&1 || true
-         
-         # Resolve submodule (160000) conflicts by staging local working tree pointers.
-         # git rebase -X theirs and git checkout --theirs do not resolve gitlink mode 160000 conflicts.
-         unmerged_submodules=$(git ls-files -u 2>/dev/null | grep '^160000' | cut -f2 | sort -u)
-         if [ -n "$unmerged_submodules" ]; then
-             echo "Resolving submodule conflicts favoring local working tree:"
-             echo "$unmerged_submodules" | while IFS= read -r sub; do
-                 if [ -n "$sub" ]; then
-                     echo "  Staging local pointer for submodule: $sub"
-                     git add "$sub" >/dev/null 2>&1 || true
-                 fi
-             done
-         fi
-         git add -u >/dev/null 2>&1 || true
-         git add . >/dev/null 2>&1 || true
-         
-         # Try to continue the rebase
-         # We use 'true' as the editor to close any commit message prompts immediately
-         if GIT_EDITOR=true git rebase --continue; then
-             echo "Rebase conflict resolved favoring local state."
-             PRE_REBASE_SAVE=false
-         else
-             echo "Critical: Aggressive resolution failed. Aborting."
-             git rebase --abort || rm -rf .git/rebase-merge
-             if [ "$PRE_REBASE_SAVE" = true ]; then
-                 LAST_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
-                 case "$LAST_MSG" in
-                     "Pre-rebase save:"*)
-                         echo "Rolling back temporary pre-rebase save commit..."
-                         git reset HEAD~1
-                         ;;
-                 esac
-                 PRE_REBASE_SAVE=false
-             fi
-             echo "Aborted rebase. Backup cycle skipped."
-             notify_iris "git-backup" "error" "Rebase Conflict Resolution Failed" "Hourly backup cycle skipped because git rebase conflict could not be automatically resolved."
-             touch /tmp/charon_git_heartbeat
-             echo "Sleeping for 1 hour..."
-             sleep 3600 &
-             SLEEP_PID=$!
-             wait "$SLEEP_PID"
-             SLEEP_PID=""
-             continue
-         fi
-      else
-         echo "Rebase successful. Local state preserved."
-         PRE_REBASE_SAVE=false
-      fi
+        echo "[$(date)] All ${TOTAL_TARGETS} git backup targets completed successfully."
     fi
-  fi
 
-  # 2. Add all current local files to staging
-  git add .
-  
-  # 3. Check if there are any changes to commit (after the pull)
-  if git diff --staged --quiet --ignore-submodules=dirty; then
-    echo "Working directory is clean (all changes committed). Proceeding to push..."
-  else
-    echo "Changes detected. Committing..."
-    
-    # Construct commit message prefix based on ENV
-    if [ -n "$ENV" ]; then
-        PREFIX="[${ENV}] "
-    else
-        PREFIX=""
-    fi
-    
-    # Commit changes
-    git commit -m "${PREFIX}Hourly Vault Backup: $(date)"
-  fi
-  
-  # 4. Push to remote if we are ahead (or if we have unpushed commits from a rebase)
-  # We use 'git push' which will handle the "Everything up-to-date" case gracefully
-  echo "Ensuring remote is in sync..."
-  if ! git push origin main; then
-      echo "Push failed. Checking remote reachability..."
-      if ! git fetch origin main; then
-          echo "Remote is unreachable or fetch failed (network or SSH error). Skipping push for this backup cycle."
-      else
-          echo "Remote is reachable. Branch might have diverged (e.g. force push). Attempting final rebase..."
-          
-          if git pull --rebase origin main; then
-              if ! git push origin main; then
-                  echo "Final push failed."
-                  notify_iris "git-backup" "error" "Git Push Failed" "Failed to push hourly vault commits to remote after rebase."
-              fi
-          else
-              echo "Rebase failed. Aborting rebase before resync..."
-              git rebase --abort >/dev/null 2>&1 || rm -rf .git/rebase-merge
-              echo "Prioritizing LOCAL state as source of truth."
-              # If we cannot rebase, it means the histories are hopelessly diverged.
-              # Strategy: Soft reset to remote HEAD, keeping all local files as "changes", then commit and push.
-              echo "Performing soft reset to align with remote..."
-              
-              # 1. Fetch latest remote
-              git fetch origin main
-              
-              # 2. Soft reset: Move HEAD to remote, but keep working directory (local files) intact
-              git reset --soft origin/main
-              
-              # 3. Stage all local files (this effectively "overwrites" the remote state with local state in a new commit)
-              git add .
-              
-              # 4. Commit as a fresh backup state
-              git commit -m "Consolidated Backup: Resync after divergence $(date)"
-              
-              # 5. Push (force shouldn't be needed now as we are legally ahead, but we use it just in case)
-              echo "Pushing consolidated state..."
-              if ! (git push origin main || git push --force origin main); then
-                  echo "Pushing consolidated state failed."
-                  notify_iris "git-backup" "error" "Consolidated Git Push Failed" "Failed to push consolidated backup state even with force push."
-              fi
-          fi
-      fi
-  else
-      echo "Remote is in sync."
-  fi
-  
-  touch /tmp/charon_git_heartbeat
-  echo "Backup check complete. Sleeping for 1 hour..."
-  
-  # Sleep with background process to allow trap interruption
-  sleep 3600 &
-  SLEEP_PID=$!
-  wait "$SLEEP_PID"
-  SLEEP_PID=""
+    touch /tmp/charon_git_heartbeat
+    echo "Backup check complete. Sleeping for 1 hour..."
+
+    sleep 3600 &
+    SLEEP_PID=$!
+    wait "$SLEEP_PID"
+    SLEEP_PID=""
 done
 
 echo "[$(date)] Backup script stopped."
