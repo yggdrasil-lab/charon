@@ -5,7 +5,7 @@
     "path": "/opt/atlas/vault",
     "repo_url_env": "GIT_REPO_URL",
     "branch": "main",
-    "commit_prefix": "Hourly Vault Backup: ",
+    "commit_prefix": "Daily Vault Backup: ",
     "resolve_submodules": true,
     "clean_ignored": true
   },
@@ -15,7 +15,7 @@
     "path": "/opt/odin",
     "repo_url_env": "ODIN_GIT_REPO_URL",
     "branch": "main",
-    "commit_prefix": "Hermes Backup: ",
+    "commit_prefix": "Daily Hermes Backup: ",
     "resolve_submodules": false,
     "clean_ignored": true
   }

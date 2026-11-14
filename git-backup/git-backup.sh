@@ -8,7 +8,7 @@ if ! getent passwd "$(id -u)" >/dev/null 2>&1; then
     echo "charon:x:$(id -u):$(id -g):charon:${HOME:-/tmp}:/bin/sh" >> /etc/passwd 2>/dev/null || true
 fi
 
-echo "Initializing centralized git backup script..."
+echo "Initializing centralized git backup run..."
 
 TARGETS_CONFIG="${TARGETS_CONFIG:-/etc/charon-git/targets.json}"
 
@@ -38,42 +38,8 @@ git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
 git config --global --add safe.directory "*"
 
-# Setup SSH keys from Docker Secret
-echo "Setting up SSH keys..."
 SSH_DIR="${HOME:-/tmp}/.ssh"
-mkdir -p "${SSH_DIR}"
-if [ -f "/run/secrets/charon_ssh_key" ]; then
-    # Strip Windows-style carriage returns (\r)
-    tr -d '\r' < /run/secrets/charon_ssh_key > "${SSH_DIR}/id_rsa"
-    # Ensure there is a trailing newline
-    echo "" >> "${SSH_DIR}/id_rsa"
-fi
-chmod 700 "${SSH_DIR}"
-chmod 600 "${SSH_DIR}"/* 2>/dev/null || true
-
-# Add github.com to known_hosts
-if ! ssh-keygen -F github.com -f "${SSH_DIR}/known_hosts" >/dev/null 2>&1; then
-    echo "Adding github.com to known_hosts..."
-    ssh-keyscan github.com >> "${SSH_DIR}/known_hosts" 2>/dev/null
-fi
-chmod 600 "${SSH_DIR}/known_hosts" 2>/dev/null || true
-
 export GIT_SSH_COMMAND="ssh -i ${SSH_DIR}/id_rsa -o UserKnownHostsFile=${SSH_DIR}/known_hosts -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
-
-# Signal readiness for healthcheck
-touch /tmp/.git_ready
-
-# Graceful Shutdown Handling
-STOP_REQUESTED=false
-shutdown_handler() {
-    echo "[$(date)] SIGTERM/SIGINT received. Shutting down gracefully..."
-    STOP_REQUESTED=true
-    if [ -n "$SLEEP_PID" ]; then
-        kill "$SLEEP_PID" 2>/dev/null
-    fi
-}
-
-trap 'shutdown_handler' SIGTERM SIGINT
 
 backup_target() {
     _NAME="$1"
@@ -245,52 +211,42 @@ backup_target() {
     return 0
 }
 
-# Main backup loop
-while [ "$STOP_REQUESTED" = false ]; do
-    echo "[$(date)] --- Starting centralized git backup run ---"
+echo "[$(date)] --- Starting centralized git backup run ---"
 
-    TOTAL_TARGETS=0
-    FAILED_TARGETS=0
-    FAILURES_DETAILS=""
+TOTAL_TARGETS=0
+FAILED_TARGETS=0
+FAILURES_DETAILS=""
 
-    # Read each target from targets.json
-    jq -c '.[]' "${TARGETS_CONFIG}" > /tmp/targets_to_run.jsonl
+# Read each target from targets.json
+jq -c '.[]' "${TARGETS_CONFIG}" > /tmp/targets_to_run.jsonl
 
-    while IFS= read -r target_json; do
-        [ -z "$target_json" ] && continue
-        TOTAL_TARGETS=$((TOTAL_TARGETS + 1))
+while IFS= read -r target_json; do
+    [ -z "$target_json" ] && continue
+    TOTAL_TARGETS=$((TOTAL_TARGETS + 1))
 
-        TARGET_NAME=$(echo "$target_json" | jq -r '.name')
-        TARGET_PATH=$(echo "$target_json" | jq -r '.path')
-        TARGET_REPO_ENV=$(echo "$target_json" | jq -r '.repo_url_env')
-        TARGET_BRANCH=$(echo "$target_json" | jq -r '.branch // "main"')
-        TARGET_PREFIX=$(echo "$target_json" | jq -r '.commit_prefix // "Backup: "')
-        TARGET_RESOLVE_SUB=$(echo "$target_json" | jq -r '.resolve_submodules // false')
-        TARGET_CLEAN_IGN=$(echo "$target_json" | jq -r '.clean_ignored // false')
+    TARGET_NAME=$(echo "$target_json" | jq -r '.name')
+    TARGET_PATH=$(echo "$target_json" | jq -r '.path')
+    TARGET_REPO_ENV=$(echo "$target_json" | jq -r '.repo_url_env')
+    TARGET_BRANCH=$(echo "$target_json" | jq -r '.branch // "main"')
+    TARGET_PREFIX=$(echo "$target_json" | jq -r '.commit_prefix // "Daily Backup: "')
+    TARGET_RESOLVE_SUB=$(echo "$target_json" | jq -r '.resolve_submodules // false')
+    TARGET_CLEAN_IGN=$(echo "$target_json" | jq -r '.clean_ignored // false')
 
-        # Dynamically resolve repository URL from environment variable
-        TARGET_REPO_URL=$(eval echo "\$$TARGET_REPO_ENV")
+    # Dynamically resolve repository URL from environment variable
+    TARGET_REPO_URL=$(eval echo "\$$TARGET_REPO_ENV")
 
-        if ! backup_target "$TARGET_NAME" "$TARGET_PATH" "$TARGET_REPO_URL" "$TARGET_BRANCH" "$TARGET_PREFIX" "$TARGET_RESOLVE_SUB" "$TARGET_CLEAN_IGN"; then
-            FAILED_TARGETS=$((FAILED_TARGETS + 1))
-            FAILURES_DETAILS="${FAILURES_DETAILS}Target '${TARGET_NAME}' failed backup. "
-        fi
-    done < /tmp/targets_to_run.jsonl
-
-    if [ "$FAILED_TARGETS" -gt 0 ]; then
-        echo "[$(date)] Git backup completed with ${FAILED_TARGETS}/${TOTAL_TARGETS} failures."
-        notify_iris "git-backup" "error" "Git Backup Failed" "${FAILURES_DETAILS}"
-    else
-        echo "[$(date)] All ${TOTAL_TARGETS} git backup targets completed successfully."
+    if ! backup_target "$TARGET_NAME" "$TARGET_PATH" "$TARGET_REPO_URL" "$TARGET_BRANCH" "$TARGET_PREFIX" "$TARGET_RESOLVE_SUB" "$TARGET_CLEAN_IGN"; then
+        FAILED_TARGETS=$((FAILED_TARGETS + 1))
+        FAILURES_DETAILS="${FAILURES_DETAILS}Target '${TARGET_NAME}' failed backup. "
     fi
+done < /tmp/targets_to_run.jsonl
 
-    touch /tmp/charon_git_heartbeat
-    echo "Backup check complete. Sleeping for 1 hour..."
+touch /tmp/charon_git_heartbeat
 
-    sleep 3600 &
-    SLEEP_PID=$!
-    wait "$SLEEP_PID"
-    SLEEP_PID=""
-done
-
-echo "[$(date)] Backup script stopped."
+if [ "$FAILED_TARGETS" -gt 0 ]; then
+    echo "[$(date)] Git backup completed with ${FAILED_TARGETS}/${TOTAL_TARGETS} failures."
+    notify_iris "git-backup" "error" "Git Backup Failed" "${FAILURES_DETAILS}"
+    exit 1
+else
+    echo "[$(date)] All ${TOTAL_TARGETS} git backup targets completed successfully."
+fi
