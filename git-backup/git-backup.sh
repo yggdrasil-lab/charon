@@ -285,9 +285,10 @@ while [ "$STOP_REQUESTED" = false ]; do
     fi
 
     touch /tmp/charon_git_heartbeat
-    echo "Backup check complete. Sleeping for 1 hour..."
+    _INTERVAL="${BACKUP_INTERVAL:-86400}"
+    echo "Backup check complete. Sleeping for ${_INTERVAL}s (daily)..."
 
-    sleep 3600 &
+    sleep "${_INTERVAL}" &
     SLEEP_PID=$!
     wait "$SLEEP_PID"
     SLEEP_PID=""
