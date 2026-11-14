@@ -216,8 +216,7 @@ services:
       - source: charon_ssh_key
         target: charon_ssh_key
     volumes:
-      - ${OBSIDIAN_VAULT_PATH}:/git/vault
-      - ${ODIN_PATH}:/git/odin
+      - /opt:/opt
     networks:
       - aether-net
       - internal

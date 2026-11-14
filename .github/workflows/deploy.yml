@@ -59,7 +59,6 @@ jobs:
         env:
           # Infrastructure Vars
           OBSIDIAN_VAULT_PATH: ${{ vars.OBSIDIAN_VAULT_PATH }}
-          ODIN_PATH: ${{ vars.ODIN_PATH || '/opt/odin' }}
           RCLONE_CACHE_PATH: ${{ vars.RCLONE_CACHE_PATH }}
           GDRIVE_VAULT_PATH: ${{ vars.GDRIVE_VAULT_PATH }}
           GDRIVE_BACKUP_PATH: ${{ vars.GDRIVE_BACKUP_PATH }}
