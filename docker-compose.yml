@@ -121,6 +121,8 @@ services:
       - BACKUP_KEEP_DAYS=30
       - EIR_DB_PASSWORD=${EIR_DB_PASSWORD}
       - KRATOS_DB_PASSWORD=${KRATOS_DB_PASSWORD}
+      - IRIS_DB_PASSWORD=${IRIS_DB_PASSWORD}
+      - PLUTUS_DB_PASSWORD=${PLUTUS_DB_PASSWORD}
     secrets:
       - source: charon_authentik_postgres_password
         target: charon_authentik_postgres_password

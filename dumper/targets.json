@@ -31,6 +31,26 @@
     "database": "authentik"
   },
   {
+    "name": "iris",
+    "type": "postgres",
+    "node": "gaia",
+    "host": "iris-db",
+    "port": 5432,
+    "user": "iris",
+    "password_env": "IRIS_DB_PASSWORD",
+    "database": "iris"
+  },
+  {
+    "name": "plutus",
+    "type": "postgres",
+    "node": "gaia",
+    "host": "plutus-db",
+    "port": 5432,
+    "user": "plutus",
+    "password_env": "PLUTUS_DB_PASSWORD",
+    "database": "plutus"
+  },
+  {
     "name": "authentik/data",
     "type": "archive",
     "node": "gaia",
