@@ -22,8 +22,6 @@ services:
           memory: 512M
         reservations:
           memory: 64M
-    depends_on:
-      - git-backup
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/charon_sync_heartbeat && [ $$(($$(date +%s) - $$(stat -c %Y /tmp/charon_sync_heartbeat))) -lt 900 ] || exit 1"]
       interval: 30s
@@ -45,7 +43,6 @@ services:
     entrypoint: /entrypoint.sh
     networks:
       - aether-net
-      - internal
 
   charon-archive:
     image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME}
@@ -215,13 +212,10 @@ services:
       - /opt:/opt
     networks:
       - aether-net
-      - internal
 
 networks:
   aether-net:
     external: true
-  internal:
-    driver: overlay
 
 secrets:
   charon_rclone_config:
