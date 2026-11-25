@@ -3,16 +3,20 @@ FROM alpine:3.20
 RUN apk add --no-cache \
     postgresql16-client \
     sqlite \
-    curl \
-    jq \
-    tzdata
+    tzdata \
+    python3 && \
+    mkdir -p /backups /var/log /etc/charon-dumper /opt/charon
 
-COPY targets.json /etc/charon-dumper/targets.json
-COPY dumper.sh /usr/local/bin/dumper.sh
-COPY restore.sh /usr/local/bin/restore.sh
-COPY entrypoint.sh /entrypoint.sh
+ENV PYTHONPATH=/opt/charon \
+    PYTHONDONTWRITEBYTECODE=1
 
-RUN chmod +x /usr/local/bin/dumper.sh /usr/local/bin/restore.sh /entrypoint.sh && \
-    mkdir -p /backups /var/log /etc/charon-dumper
+COPY charon_runtime /opt/charon/charon_runtime
+COPY dumper/targets.json /etc/charon-dumper/targets.json
+COPY dumper/dumper.sh /usr/local/bin/dumper.sh
+COPY dumper/restore.sh /usr/local/bin/restore.sh
+COPY dumper/entrypoint.sh /entrypoint.sh
+
+RUN chmod -R a+rX /opt/charon && \
+    chmod +x /usr/local/bin/dumper.sh /usr/local/bin/restore.sh /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

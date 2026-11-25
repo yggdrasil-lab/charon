@@ -174,3 +174,7 @@ config
 cache
 
 docker-compose.override.yml
+
+### Python ###
+__pycache__/
+*.pyc
