@@ -90,8 +90,8 @@ services:
   charon-dumper-gaia:
     image: ${REGISTRY_PREFIX}charon-dumper:${STACK_NAME}
     build:
-      context: ./dumper
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: dumper/Dockerfile
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
     deploy:
@@ -138,8 +138,8 @@ services:
   charon-dumper-muspelheim:
     image: ${REGISTRY_PREFIX}charon-dumper:${STACK_NAME}
     build:
-      context: ./dumper
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: dumper/Dockerfile
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
     deploy:
