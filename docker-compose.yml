@@ -2,8 +2,8 @@ services:
   charon-sync:
     image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME}
     build:
-      context: ./rclone
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rclone/Dockerfile
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
     user: "1000:1000"
@@ -48,8 +48,8 @@ services:
   charon-archive:
     image: ${REGISTRY_PREFIX}charon-rclone:${STACK_NAME}
     build:
-      context: ./rclone
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rclone/Dockerfile
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
     deploy:

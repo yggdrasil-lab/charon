@@ -12,9 +12,12 @@ notify_iris() {
     _SEVERITY="$1"
     _TITLE="$2"
     _DETAILS="$3"
-    curl -s --max-time 5 --connect-timeout 3 -X POST http://iris:8000/notify/discord \
-        -H "Content-Type: application/json" \
-        -d "{\"service\":\"charon-archive\",\"bot_name\":\"Charon\",\"severity\":\"${_SEVERITY}\",\"title\":\"${_TITLE}\",\"details\":\"${_DETAILS}\",\"node\":\"${NODE}\"}" >/dev/null 2>&1 || true
+    python3 -m charon_runtime.notify \
+        --service "charon-archive" \
+        --severity "${_SEVERITY}" \
+        --title "${_TITLE}" \
+        --details "${_DETAILS}" \
+        --node "${NODE}" || true
 }
 
 case "$1" in
@@ -44,7 +47,7 @@ case "$1" in
         ;;
     setup-cron)
         log "Initializing archive environment..."
-        . /setup.sh
+        python3 -m charon_runtime.bisync_recovery prepare-env
         touch /tmp/charon_archive_heartbeat
 
         # Create crontab: redirect stdout and stderr to /proc/1/fd/1 so docker service logs sees it
