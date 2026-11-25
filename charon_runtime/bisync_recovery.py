@@ -118,15 +118,11 @@ def _ensure_owner_exec(path: Path) -> None:
 
 
 def _iter_subdirs(directory: Path) -> list[Path]:
-    subdirs: list[Path] = []
     try:
         with os.scandir(directory) as entries:
-            for entry in entries:
-                if _is_real_dir(entry):
-                    subdirs.append(Path(entry.path))
+            return [Path(entry.path) for entry in entries if _is_real_dir(entry)]
     except OSError:
         return []
-    return subdirs
 
 
 def _fix_directory_permissions(data_dir: Path) -> None:
