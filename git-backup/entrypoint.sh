@@ -26,13 +26,13 @@ chown 1000:1000 /tmp/.git_ready /tmp/charon_git_heartbeat
 
 # Run initial backup on container startup as user 1000
 echo "[$(date)] Running initial startup git backup..."
-su-exec charon /usr/local/bin/git-backup.sh || echo "[$(date)] Initial git backup finished with warnings, continuing to scheduler..."
+cd /tmp && env HOME=/tmp su-exec charon /usr/local/bin/git-backup.sh || echo "[$(date)] Initial git backup finished with warnings, continuing to scheduler..."
 
 # Install cron job daily (streams output to container stdout /proc/1/fd/1)
 CRON_SCHEDULE="${GIT_BACKUP_CRON:-0 2 * * *}"
 echo "[$(date)] Installing crontab schedule: ${CRON_SCHEDULE}..."
 cat << CRON > /etc/crontabs/root
-${CRON_SCHEDULE} su-exec charon /usr/local/bin/git-backup.sh > /proc/1/fd/1 2>&1
+${CRON_SCHEDULE} cd /tmp && env HOME=/tmp su-exec charon /usr/local/bin/git-backup.sh > /proc/1/fd/1 2>&1
 CRON
 
 echo "[$(date)] Starting crond in foreground..."

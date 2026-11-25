@@ -177,8 +177,8 @@ services:
   git-backup:
     image: ${REGISTRY_PREFIX}charon-git:${STACK_NAME}
     build:
-      context: ./git-backup
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: git-backup/Dockerfile
     labels:
       - "com.docker.compose.project=${STACK_NAME}"
     deploy:
