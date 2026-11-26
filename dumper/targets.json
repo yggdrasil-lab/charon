@@ -61,6 +61,16 @@
     "database": "odysseus"
   },
   {
+    "name": "chronos",
+    "type": "postgres",
+    "node": "gaia",
+    "host": "chronos-db",
+    "port": 5432,
+    "user": "chronos",
+    "password_env": "CHRONOS_DB_PASSWORD",
+    "database": "chronos"
+  },
+  {
     "name": "authentik/data",
     "type": "archive",
     "node": "gaia",
