@@ -23,6 +23,7 @@ jobs:
           KRATOS_DB_PASSWORD: ${{ secrets.KRATOS_DB_PASSWORD }}
           IRIS_DB_PASSWORD: ${{ secrets.IRIS_DB_PASSWORD }}
           PLUTUS_DB_PASSWORD: ${{ secrets.PLUTUS_DB_PASSWORD }}
+          ODYSSEUS_DB_PASSWORD: ${{ secrets.ODYSSEUS_DB_PASSWORD }}
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
           ODIN_GIT_REPO_URL: ${{ vars.ODIN_GIT_REPO_URL }}
           GIT_USER_EMAIL: ${{ vars.GIT_USER_EMAIL }}
@@ -34,6 +35,7 @@ jobs:
           [ -z "$KRATOS_DB_PASSWORD" ] && MISSING="$MISSING KRATOS_DB_PASSWORD"
           [ -z "$IRIS_DB_PASSWORD" ] && MISSING="$MISSING IRIS_DB_PASSWORD"
           [ -z "$PLUTUS_DB_PASSWORD" ] && MISSING="$MISSING PLUTUS_DB_PASSWORD"
+          [ -z "$ODYSSEUS_DB_PASSWORD" ] && MISSING="$MISSING ODYSSEUS_DB_PASSWORD"
           [ -z "$GIT_REPO_URL" ] && MISSING="$MISSING GIT_REPO_URL"
           [ -z "$ODIN_GIT_REPO_URL" ] && MISSING="$MISSING ODIN_GIT_REPO_URL"
           [ -z "$GIT_USER_EMAIL" ] && MISSING="$MISSING GIT_USER_EMAIL"
@@ -74,6 +76,7 @@ jobs:
           KRATOS_DB_PASSWORD: ${{ secrets.KRATOS_DB_PASSWORD }}
           IRIS_DB_PASSWORD: ${{ secrets.IRIS_DB_PASSWORD }}
           PLUTUS_DB_PASSWORD: ${{ secrets.PLUTUS_DB_PASSWORD }}
+          ODYSSEUS_DB_PASSWORD: ${{ secrets.ODYSSEUS_DB_PASSWORD }}
           # Git Config
           GIT_REPO_URL: ${{ vars.GIT_REPO_URL }}
           ODIN_GIT_REPO_URL: ${{ vars.ODIN_GIT_REPO_URL }}

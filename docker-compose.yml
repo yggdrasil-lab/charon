@@ -123,6 +123,7 @@ services:
       - KRATOS_DB_PASSWORD=${KRATOS_DB_PASSWORD}
       - IRIS_DB_PASSWORD=${IRIS_DB_PASSWORD}
       - PLUTUS_DB_PASSWORD=${PLUTUS_DB_PASSWORD}
+      - ODYSSEUS_DB_PASSWORD=${ODYSSEUS_DB_PASSWORD}
     secrets:
       - source: charon_authentik_postgres_password
         target: charon_authentik_postgres_password

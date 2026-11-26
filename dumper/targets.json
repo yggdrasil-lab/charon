@@ -51,6 +51,16 @@
     "database": "plutus"
   },
   {
+    "name": "odysseus",
+    "type": "postgres",
+    "node": "gaia",
+    "host": "odysseus-db",
+    "port": 5432,
+    "user": "odysseus",
+    "password_env": "ODYSSEUS_DB_PASSWORD",
+    "database": "odysseus"
+  },
+  {
     "name": "authentik/data",
     "type": "archive",
     "node": "gaia",
